@@ -8,7 +8,7 @@ import org.egovframe.rte.fdl.property.EgovPropertyService;
 import org.egovframe.rte.ptl.mvc.tags.ui.pagination.PaginationInfo;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,8 +36,8 @@ public class DeptHeadController {
 	@Resource(name = "propertiesService")
 	private EgovPropertyService propertiesService;
 
-	/** 전체 부서와 부서장, 무효 표시, 부서별 지정 후보 */
-	@GetMapping("/asset/depthead/list.do")
+	/** 전체 부서와 부서장, 무효 표시, 부서별 지정 후보. 포털 메뉴가 POST로 이동하기도 하므로 GET·POST 모두 받는다 */
+	@RequestMapping("/asset/depthead/list.do")
 	public String list(@ModelAttribute("searchVO") ComDefaultVO searchVO, ModelMap model) throws Exception {
 		searchVO.setPageUnit(propertiesService.getInt("pageUnit"));
 		searchVO.setPageSize(propertiesService.getInt("pageSize"));
