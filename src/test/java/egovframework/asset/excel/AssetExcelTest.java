@@ -157,6 +157,19 @@ class AssetExcelTest extends AssetIntegrationSupport {
 	}
 
 	@Test
+	void itemUploadRollsBackEarlierRowsWhenWritingFails() throws Exception {
+		// 검사는 통과하지만(소문자 비교로는 다른 이름) DB 규칙(악센트 무시)으로는 같은 이름 → 저장 중 2행이 거부된다
+		long n = System.nanoTime();
+		String a = "엑셀café-" + n;
+		String b = "엑셀cafe-" + n;
+		assertThrows(AssetItemException.class, () -> excelService.uploadItems(xlsx(
+				row("품목명", "유형", "분류코드", "단위코드", "최소 수량"),
+				row(a, "수량", "OFFICE", "EA", 0),
+				row(b, "수량", "OFFICE", "EA", 0)), "keeper"));
+		assertEquals(0, jdbc().queryForObject("SELECT COUNT(*) FROM ASSET_ITEM WHERE ITEM_NM IN (?, ?)", Integer.class, a, b));
+	}
+
+	@Test
 	void itemUploadAcceptsXls() throws Exception {
 		String a = uniq("엑셀xls-");
 		AssetExcelResult r = excelService.uploadItems(xls(
