@@ -51,13 +51,14 @@ INSERT INTO COMTNROLEINFO (ROLE_CODE, ROLE_NM, ROLE_PTTRN, ROLE_DC, ROLE_TY, ROL
 ('asset-000003', '재고·자산 관리', '\\A/asset/(item|stock|unit|deliver|excel|shortage)/.*\\.do.*\\Z', '자산담당자 전용', 'url', '0', SYSDATE()),
 ('asset-000004', '비품 관리자', '\\A/asset/(depthead|admin)/.*\\.do.*\\Z', '부서장 지정·전체 신청 조회', 'url', '0', SYSDATE()),
 ('asset-000005', '배치 관리', '\\A/sym/bat/.*\\.do.*\\Z', '배치 작업·결과 화면', 'url', '0', SYSDATE()),
-('asset-000006', '게시글 쓰기', '\\A/cop/bbs/(insertArticle|replyArticle|updateArticle|deleteArticle)(View)?\\.do.*\\Z', '공지 게시판 쓰기는 관리자·자산담당자', 'url', '0', SYSDATE()),
+('asset-000006', '게시글 쓰기', '\\A/(cop/bbs/(insertArticle|replyArticle|updateArticle|deleteArticle)(View)?|cmm/fms/deleteFileInfs)\\.do.*\\Z', '공지 게시판 쓰기·첨부 삭제는 관리자·자산담당자', 'url', '0', SYSDATE()),
 ('asset-000007', '게시판 관리', '\\A/cop/bbs/.*BBSMaster.*\\.do.*\\Z', '게시판 생성·속성 관리', 'url', '0', SYSDATE()),
 ('asset-000008', '사용자·권한 관리', '\\A/(sec/ram/EgovAuthor|sec/rgm/|sec/gmt/|sym/mnu/(mpm/EgovMenu|mcm/)|uss/umt/dpt/|uss/umt/Egov(Emplyr|Mber|Entrprs)(Manage|Insert|Delete|SelectUpdt|LockIncorrect)).*\\.do.*\\Z', '공통컴포넌트 사용자·권한·메뉴·부서 관리', 'url', '0', SYSDATE()),
 -- 공통컴포넌트 관리 영역(보안·시스템·로그인정책·통계·연계·시스템 감시)은 관리자만. 기반은 로그인 사용자에게 모든 .do를 열어 두므로
 -- 막지 않으면 신청자가 부서권한관리(/sec/drm) 등으로 스스로 권한을 올릴 수 있다. 포털 메인 메뉴·달력·우편번호·배치(위 '0' 패턴)는 제외.
+-- 팝업·메인이미지·로그인이미지·약관의 관리 기능도 관리자만(메인 화면·로그인 화면이 쓰는 조회 URL은 제외).
 -- 정렬 순서 '05'는 '0' 패턴들보다 뒤, 기반 패턴('1', '3')보다 앞이다.
-('asset-000009', '공통 관리 영역', '\\A/(sec/(?!rnc/|ram/accessDenied)|sym/(?!mnu/mpm/EgovMainMenu|cal/|ccm/zip/|bat/)|uat/uap/|sts/|ssi/|utl/sys/).*\\.do.*\\Z', '공통컴포넌트 관리 화면', 'url', '05', SYSDATE());
+('asset-000009', '공통 관리 영역', '\\A/(sec/(?!rnc/|ram/accessDenied)|sym/(?!mnu/mpm/EgovMainMenu|cal/|ccm/zip/|bat/)|uat/uap/|sts/|ssi/|utl/sys/|uss/ion/pwm/(?!openPopupManage|listMainPopup|ajaxPopupManageInfo)|uss/ion/msi/(?!getMainImage)|uss/ion/lsi/(?!getLoginScrinImage)|uss/sam/[a-z]+/[A-Za-z]*(Regist|Updt|Delete)).*\\.do.*\\Z', '공통컴포넌트 관리 화면', 'url', '05', SYSDATE());
 
 INSERT INTO COMTNAUTHORROLERELATE (AUTHOR_CODE, ROLE_CODE, CREAT_DT) VALUES
 ('ROLE_USER', 'asset-000001', SYSDATE()),

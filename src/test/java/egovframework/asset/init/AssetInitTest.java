@@ -142,6 +142,8 @@ class AssetInitTest extends AssetIntegrationSupport {
 		assertTrue(matches("asset-000004", "/asset/depthead/list.do"));
 		assertTrue(matches("asset-000006", "/cop/bbs/insertArticle.do"));
 		assertFalse(matches("asset-000006", "/cop/bbs/selectArticleList.do"));
+		assertTrue(matches("asset-000006", "/cmm/fms/deleteFileInfs.do"));
+		assertFalse(matches("asset-000006", "/cmm/fms/FileDown.do"));
 		assertTrue(matches("asset-000008", "/uss/umt/EgovEmplyrManage.do"));
 		assertFalse(matches("asset-000008", "/sec/ram/accessDenied.do"));
 		assertTrue(matches("asset-000008", "/sym/mnu/mpm/EgovMenuManageSelect.do"));
@@ -151,12 +153,14 @@ class AssetInitTest extends AssetIntegrationSupport {
 		assertEquals(List.of("ROLE_ADMIN"), authorities("asset-000009"));
 		for (String url : List.of("/sec/drm/EgovDeptAuthorInsert.do", "/sec/rmt/EgovRoleList.do", "/sym/ccm/cca/EgovCcmCmmnCodeList.do",
 				"/sym/prm/EgovProgramListManageSelect.do", "/sym/log/lgm/SelectSysLogList.do", "/uat/uap/selectLoginPolicyList.do",
-				"/sts/ust/selectUserStats.do", "/utl/sys/srm/getServerResrceMntrngList.do")) {
+				"/sts/ust/selectUserStats.do", "/utl/sys/srm/getServerResrceMntrngList.do", "/uss/ion/pwm/registPopup.do",
+				"/uss/ion/msi/addMainImage.do", "/uss/ion/lsi/removeLoginScrinImage.do", "/uss/sam/stp/StplatCnUpdt.do")) {
 			assertTrue(matches("asset-000009", url), url);
 		}
 		for (String url : List.of("/sym/mnu/mpm/EgovMainMenuHome.do", "/sym/mnu/mpm/EgovMainMenuLeft.do", "/sec/ram/accessDenied.do",
 				"/sec/rnc/EgovRlnmCnfirm.do", "/sym/cal/EgovNormalCalPopup.do", "/sym/ccm/zip/EgovCcmZipSearchPopup.do",
-				"/sym/bat/getBatchResultList.do", "/asset/req/form.do")) {
+				"/sym/bat/getBatchResultList.do", "/asset/req/form.do", "/uss/ion/pwm/openPopupManage.do", "/uss/ion/pwm/listMainPopup.do",
+				"/uss/ion/msi/getMainImage.do", "/uss/ion/lsi/getLoginScrinImage.do", "/uss/umt/EgovStplatCnfirmMber.do")) {
 			assertFalse(matches("asset-000009", url), url);
 		}
 		// 배치 화면 허용 패턴('0')이 관리 영역 차단 패턴('05')보다 먼저 평가된다

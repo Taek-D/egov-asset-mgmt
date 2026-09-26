@@ -47,7 +47,7 @@
 
 - 새 업무 URL은 기존 영역 접두사(`/asset/req`, `/asset/approve`, `/asset/item`, `/asset/stock`, `/asset/unit`, `/asset/deliver`, `/asset/excel`, `/asset/shortage`, `/asset/depthead`, `/asset/admin`) 아래에 둔다. 새 접두사를 만들면 `COMTNROLEINFO` 패턴과 권한 연결 행을 같이 추가한다. 그러지 않으면 포괄 패턴에 걸려 모든 로그인 사용자에게 열린다. 겹치는 허용·차단 패턴은 정렬 값을 다르게 둔다(같은 값끼리는 순서가 보장되지 않는다): 좁은 허용 `'0'`, 넓은 관리 영역 차단 `'05'`.
 - 공통컴포넌트 관리 영역(`/sec`, `/sym`, `/uat/uap`, `/sts`, `/ssi`, `/utl/sys`)을 사용자에게 여는 예외를 만들 때는 차단 패턴(`asset-000009`)의 부정 전방탐색에 좁게 추가하고, `AssetInitTest`의 URL 단정도 함께 고친다.
-- 패턴은 SQL 문자열 안에서 역슬래시를 두 번 쓴다(`'\\A/asset/.*\\.do.*\\Z'`). 정렬 순서는 `'0'`으로 둔다.
+- 패턴은 SQL 문자열 안에서 역슬래시를 두 번 쓴다(`'\\A/asset/.*\\.do.*\\Z'`). 업무 허용 패턴의 정렬 순서는 `'0'`이다.
 - 새 메뉴는 역할마다 `COMTNMENUCREATDTLS` 행을 따로 준다(계층 상속 없음). 메뉴 번호는 기반이 쓰지 않는 `29xxxxxx` 대역을 쓴다.
 
 ## DB 초기화 파일
