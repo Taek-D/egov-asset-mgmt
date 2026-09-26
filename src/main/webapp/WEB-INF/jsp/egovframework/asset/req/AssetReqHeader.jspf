@@ -1,0 +1,36 @@
+<%@ page pageEncoding="UTF-8" %>
+<%-- 신청서 헤더 표(상세·승인·지급 화면 공용, 정적 include). 필요 모델: req, sttusNm --%>
+	<table class="wTable">
+	<caption>신청서 정보</caption>
+	<colgroup><col style="width:18%;"><col style="width:32%;"><col style="width:18%;"><col></colgroup>
+	<tbody>
+	<tr>
+		<th scope="row">신청번호</th>
+		<td class="left"><c:out value="${req.reqNo}"/></td>
+		<th scope="row">상태</th>
+		<td class="left"><strong><c:out value="${sttusNm[req.sttus]}"/></strong><c:if test="${req.noApprover}"> (승인자 없음)</c:if></td>
+	</tr>
+	<tr>
+		<th scope="row">신청자</th>
+		<td class="left"><c:out value="${req.applcntNm}"/> (<c:out value="${req.applcntId}"/>)</td>
+		<th scope="row">신청 당시 부서</th>
+		<td class="left"><c:out value="${req.orgnztNm}"/></td>
+	</tr>
+	<tr>
+		<th scope="row">신청 시각</th>
+		<td class="left"><fmt:formatDate value="${req.reqPnttm}" pattern="yyyy-MM-dd HH:mm:ss"/></td>
+		<th scope="row">승인·반려</th>
+		<td class="left"><c:if test="${not empty req.aprvId}"><c:out value="${req.aprvNm}"/> (<c:out value="${req.aprvId}"/>) <fmt:formatDate value="${req.aprvPnttm}" pattern="yyyy-MM-dd HH:mm"/></c:if></td>
+	</tr>
+	<c:if test="${req.sttus == 'PENDING'}">
+	<tr>
+		<th scope="row">지금 승인자</th>
+		<td class="left" colspan="3"><c:choose><c:when test="${empty req.approverIds}">승인자 없음(관리자에게 부서장 지정을 요청하세요)</c:when><c:otherwise><c:forEach items="${req.approverIds}" var="a" varStatus="s"><c:out value="${a}"/><c:if test="${not s.last}">, </c:if></c:forEach></c:otherwise></c:choose></td>
+	</tr>
+	</c:if>
+	<tr>
+		<th scope="row">신청 사유</th>
+		<td class="left" colspan="3"><c:out value="${req.reqResn}"/></td>
+	</tr>
+	</tbody>
+	</table>
