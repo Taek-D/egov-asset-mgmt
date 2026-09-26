@@ -1,0 +1,6 @@
+# 기동 로그 확인 (2026-09-27 06:25, docker compose up)
+# 'Fatal ERROR' 줄 수: 0
+# SEVERE 줄 수: 0
+[설정 생성] /usr/local/tomcat/webapps/ROOT/WEB-INF/classes 에 crypto·DB 설정을 만들었습니다.
+[log4j]2026-09-27 06:24:16,308  INFO [org.egovframe.rte.fdl.cmmn.EgovAbstractServiceImpl] 데모 암호를 시드 계정 9개에 적용했습니다.
+27-Sep-2026 06:24:19.223 INFO [main] org.apache.catalina.startup.Catalina.start Server startup in [9013] milliseconds
