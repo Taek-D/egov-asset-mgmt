@@ -23,10 +23,10 @@ for f in "$SRC"/**/*DAO.java; do
   grep -q 'extends EgovAbstractMapper' "$f" || fail "$f: EgovAbstractMapper 미상속"
 done
 echo "  대상 ${n}개"; [ "$n" -gt 0 ] || fail "점검 대상 파일을 찾지 못함"
-for f in $(grep -rlE '"\s*(SELECT|INSERT INTO|UPDATE [A-Z_]+ SET|DELETE FROM)\b' "$SRC" 2>/dev/null); do
+for f in $(grep -rlE --include='*.java' '"\s*(SELECT|INSERT INTO|UPDATE [A-Z_]+ SET|DELETE FROM)\b' "$SRC" 2>/dev/null); do
   fail "$f: 자바 코드 안의 SQL 문자열"
 done
-for f in $(grep -rlE 'JdbcTemplate|java\.sql\.(Statement|PreparedStatement)' "$SRC" 2>/dev/null); do
+for f in $(grep -rlE --include='*.java' 'JdbcTemplate|java\.sql\.(Statement|PreparedStatement)' "$SRC" 2>/dev/null); do
   fail "$f: JDBC 직접 사용"
 done
 M=(src/main/resources/egovframework/mapper/asset/**/*_mysql.xml)
@@ -34,13 +34,13 @@ echo "  매퍼 XML ${#M[@]}개"
 
 echo "[규칙 3] 컨트롤러에는 서비스 인터페이스만 주입(DAO·구현 클래스 참조 금지)"
 n=0
-for f in $(grep -rl '@Controller' "$SRC"); do
+for f in $(grep -rl --include='*.java' '@Controller' "$SRC"); do
   n=$((n + 1))
   grep -Eq '^import .*\.(service\.impl\.|[A-Za-z]*DAO;)' "$f" && fail "$f: DAO/구현 클래스 import"
   grep -Eq '\b[A-Za-z]*(DAO|ServiceImpl)\s+[a-z][A-Za-z]*\s*;' "$f" && fail "$f: DAO/구현 클래스 필드"
 done
 echo "  대상 ${n}개"; [ "$n" -gt 0 ] || fail "점검 대상 파일을 찾지 못함"
 
-echo "[참고] 규칙 4 사용처: PaginationInfo $(grep -rl 'PaginationInfo' "$SRC" | wc -l)개 파일, EgovIdGnrService $(grep -rl 'EgovIdGnrService' "$SRC" | wc -l)개 파일"
+echo "[참고] 규칙 4 사용처: PaginationInfo $(grep -rl --include='*.java' 'PaginationInfo' "$SRC" | wc -l)개 파일, EgovIdGnrService $(grep -rl --include='*.java' 'EgovIdGnrService' "$SRC" | wc -l)개 파일"
 echo "위반 합계: ${V}건"
 [ "$V" -eq 0 ]

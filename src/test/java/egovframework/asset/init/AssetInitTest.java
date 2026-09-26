@@ -147,11 +147,30 @@ class AssetInitTest extends AssetIntegrationSupport {
 		assertTrue(matches("asset-000008", "/sym/mnu/mpm/EgovMenuManageSelect.do"));
 		// 역할별 메뉴가 나오는 포털 메인화면은 모든 로그인 사용자가 본다
 		assertFalse(matches("asset-000008", "/sym/mnu/mpm/EgovMainMenuHome.do"));
+		// 공통컴포넌트 관리 영역은 관리자만(신청자가 부서권한관리로 스스로 권한을 올리는 경로 차단)
+		assertEquals(List.of("ROLE_ADMIN"), authorities("asset-000009"));
+		for (String url : List.of("/sec/drm/EgovDeptAuthorInsert.do", "/sec/rmt/EgovRoleList.do", "/sym/ccm/cca/EgovCcmCmmnCodeList.do",
+				"/sym/prm/EgovProgramListManageSelect.do", "/sym/log/lgm/SelectSysLogList.do", "/uat/uap/selectLoginPolicyList.do",
+				"/sts/ust/selectUserStats.do", "/utl/sys/srm/getServerResrceMntrngList.do")) {
+			assertTrue(matches("asset-000009", url), url);
+		}
+		for (String url : List.of("/sym/mnu/mpm/EgovMainMenuHome.do", "/sym/mnu/mpm/EgovMainMenuLeft.do", "/sec/ram/accessDenied.do",
+				"/sec/rnc/EgovRlnmCnfirm.do", "/sym/cal/EgovNormalCalPopup.do", "/sym/ccm/zip/EgovCcmZipSearchPopup.do",
+				"/sym/bat/getBatchResultList.do", "/asset/req/form.do")) {
+			assertFalse(matches("asset-000009", url), url);
+		}
+		// 배치 화면 허용 패턴('0')이 관리 영역 차단 패턴('05')보다 먼저 평가된다
+		assertTrue(sortOf("asset-000005").compareTo(sortOf("asset-000009")) < 0);
+		assertTrue(sortOf("asset-000009").compareTo(sortOf("web-000003")) < 0);
 	}
 
 	private List<String> authorities(String roleCode) {
 		return jdbc().queryForList("SELECT AUTHOR_CODE FROM COMTNAUTHORROLERELATE WHERE ROLE_CODE = ? ORDER BY AUTHOR_CODE",
 				String.class, roleCode);
+	}
+
+	private String sortOf(String roleCode) {
+		return jdbc().queryForObject("SELECT ROLE_SORT FROM COMTNROLEINFO WHERE ROLE_CODE = ?", String.class, roleCode);
 	}
 
 	private boolean matches(String roleCode, String url) {

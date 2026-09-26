@@ -52,7 +52,7 @@
 	<!-- 품목 잠금 아래에서 이력 수(잠금 읽기: 확인과 변경 사이에 이력이 끼어들지 못한다) -->
 	<select id="selectHistCntLocked" parameterType="string" resultType="int">
 		SELECT (SELECT COUNT(*) FROM ASSET_STOCK_HIST WHERE ITEM_CODE = #{itemCode} FOR SHARE)
-		     + (SELECT COUNT(*) FROM ASSET_REQ_LINE WHERE ITEM_CODE = #{itemCode} FOR SHARE)
+		     + (SELECT COUNT(*) FROM ASSET_REQ_LINE WHERE ITEM_CODE = #{itemCode})
 		     + (SELECT COUNT(*) FROM ASSET_UNIT WHERE ITEM_CODE = #{itemCode} FOR SHARE)
 	</select>
 

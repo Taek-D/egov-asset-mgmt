@@ -136,7 +136,7 @@ bash scripts/verify.sh
 - **MySQL collation**: 서버 기본 collation을 `utf8mb4_unicode_ci`로 지정하면 공통컴포넌트 로그인 SQL이 "Illegal mix of collations"로 실패합니다. 그래서 서버 collation 옵션을 두지 않습니다.
 - **초기화 SQL 한글**: MySQL 공식 이미지의 초기화 클라이언트가 SQL 파일을 latin1로 읽어 공통컴포넌트 DML의 한글까지 이중 인코딩됩니다. 적재용 사본(`db/init/10_`, `20_`) 맨 앞에 `SET NAMES utf8mb4;` 한 줄만 더했습니다.
 - **비밀번호 저장 방식**: 공통컴포넌트 방식(`EgovFileScrty.encryptPassword` = 아이디를 솔트로 쓴 SHA-256 1회)을 그대로 씁니다.
-- 기반 소스 수정 목록은 `git log`의 "기반 소스 수정 사유"에 있습니다(매퍼 경로, 공통컴포넌트 테스트 컴파일 제외, servlet-api 6.0, 테스트 전용 EL 구현, 초기화 SQL 문자셋).
+- 기반 소스 수정 목록은 `git log`의 "기반 소스 수정 사유"에 있습니다(artifactId 변경, surefire `skipTests` 속성화, 기반 CI 워크플로 삭제, 매퍼 경로, 공통컴포넌트 테스트 컴파일 제외, servlet-api 6.0, 테스트 전용 EL 구현, 초기화 SQL 문자셋).
 
 ## 폴더 구조
 
