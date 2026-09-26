@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="AssetItem">
+
+	<!-- 품목 + 보관 자산 수·가용·이력 여부 -->
+	<sql id="itemSelect">
+		SELECT I.ITEM_CODE, I.ITEM_NM, I.ITEM_TY, I.CL_CODE, CL.CODE_NM AS CL_CODE_NM, I.UNIT_CODE, UN.CODE_NM AS UNIT_CODE_NM
+		     , I.MIN_QTY, I.USE_AT, I.STOCK_QTY, I.RESERVED_QTY
+		     , IFNULL(U.STORED_QTY, 0) AS STORED_QTY
+		     , CASE WHEN I.ITEM_TY = 'QTY' THEN I.STOCK_QTY ELSE IFNULL(U.STORED_QTY, 0) - I.RESERVED_QTY END AS AVAIL_QTY
+		     , (EXISTS (SELECT 1 FROM ASSET_STOCK_HIST H WHERE H.ITEM_CODE = I.ITEM_CODE)
+		        OR EXISTS (SELECT 1 FROM ASSET_REQ_LINE L WHERE L.ITEM_CODE = I.ITEM_CODE)
+		        OR EXISTS (SELECT 1 FROM ASSET_UNIT A WHERE A.ITEM_CODE = I.ITEM_CODE)) AS HAS_HIST
+		  FROM ASSET_ITEM I
+		  LEFT JOIN (SELECT ITEM_CODE, COUNT(*) AS STORED_QTY FROM ASSET_UNIT WHERE STTUS = 'STORED' GROUP BY ITEM_CODE) U ON U.ITEM_CODE = I.ITEM_CODE
+		  LEFT JOIN COMTCCMMNDETAILCODE CL ON CL.CODE_ID = 'AST001' AND CL.CODE = I.CL_CODE
+		  LEFT JOIN COMTCCMMNDETAILCODE UN ON UN.CODE_ID = 'AST002' AND UN.CODE = I.UNIT_CODE
+	</sql>
+
+	<sql id="listWhere">
+		<where>
+			<if test="searchKeyword != null and searchKeyword != ''">AND I.ITEM_NM LIKE CONCAT('%', #{searchKeyword}, '%')</if>
+			<if test="searchItemTy != null and searchItemTy != ''">AND I.ITEM_TY = #{searchItemTy}</if>
+			<if test="searchUseYn != null and searchUseYn != ''">AND I.USE_AT = #{searchUseYn}</if>
+		</where>
+	</sql>
+
+	<select id="selectItemList" parameterType="egovframework.asset.item.service.AssetItemVO" resultType="egovframework.asset.item.service.AssetItemVO">
+		<include refid="itemSelect"/>
+		<include refid="listWhere"/>
+		 ORDER BY I.ITEM_CODE
+		 LIMIT #{recordCountPerPage} OFFSET #{firstIndex}
+	</select>
+
+	<select id="selectItemListTotCnt" parameterType="egovframework.asset.item.service.AssetItemVO" resultType="int">
+		SELECT COUNT(*) FROM ASSET_ITEM I
+		<include refid="listWhere"/>
+	</select>
+
+	<select id="selectItem" parameterType="string" resultType="egovframework.asset.item.service.AssetItemVO">
+		<include refid="itemSelect"/>
+		 WHERE I.ITEM_CODE = #{itemCode}
+	</select>
+
+	<!-- 사용 중 품목 가운데 같은 이름(자기 자신 제외) -->
+	<select id="selectActiveNameCnt" parameterType="map" resultType="int">
+		SELECT COUNT(*) FROM ASSET_ITEM
+		 WHERE ACTIVE_ITEM_NM = #{itemNm}
+		<if test="itemCode != null">AND ITEM_CODE &lt;&gt; #{itemCode}</if>
+	</select>
+
+	<!-- 품목 잠금 아래에서 이력 수(잠금 읽기: 확인과 변경 사이에 이력이 끼어들지 못한다) -->
+	<select id="selectHistCntLocked" parameterType="string" resultType="int">
+		SELECT (SELECT COUNT(*) FROM ASSET_STOCK_HIST WHERE ITEM_CODE = #{itemCode} FOR SHARE)
+		     + (SELECT COUNT(*) FROM ASSET_REQ_LINE WHERE ITEM_CODE = #{itemCode} FOR SHARE)
+		     + (SELECT COUNT(*) FROM ASSET_UNIT WHERE ITEM_CODE = #{itemCode} FOR SHARE)
+	</select>
+
+	<insert id="insertItem" parameterType="map">
+		INSERT INTO ASSET_ITEM (ITEM_CODE, ITEM_NM, ITEM_TY, CL_CODE, UNIT_CODE, MIN_QTY, USE_AT, STOCK_QTY, RESERVED_QTY, FRST_REGISTER_ID, FRST_REGIST_PNTTM)
+		VALUES (#{vo.itemCode}, #{vo.itemNm}, #{vo.itemTy}, #{vo.clCode}, #{vo.unitCode}, #{vo.minQty}, 'Y', 0, 0, #{actorId}, SYSDATE())
+	</insert>
+
+	<update id="updateItem" parameterType="map">
+		UPDATE ASSET_ITEM
+		   SET ITEM_NM = #{vo.itemNm}
+		     , ITEM_TY = #{vo.itemTy}
+		     , CL_CODE = #{vo.clCode}
+		     , UNIT_CODE = #{vo.unitCode}
+		     , MIN_QTY = #{vo.minQty}
+		     , LAST_UPDUSR_ID = #{actorId}
+		     , LAST_UPDT_PNTTM = SYSDATE()
+		 WHERE ITEM_CODE = #{vo.itemCode}
+	</update>
+
+	<update id="updateUseAt" parameterType="map">
+		UPDATE ASSET_ITEM
+		   SET USE_AT = #{useAt}
+		     , LAST_UPDUSR_ID = #{actorId}
+		     , LAST_UPDT_PNTTM = SYSDATE()
+		 WHERE ITEM_CODE = #{itemCode}
+	</update>
+
+	<delete id="deleteItem" parameterType="string">
+		DELETE FROM ASSET_ITEM WHERE ITEM_CODE = #{itemCode}
+	</delete>
+
+</mapper>
