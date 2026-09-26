@@ -1,3 +1,7 @@
+-- 공통컴포넌트 DML(script/dml/mysql 사본). 적재 순서를 위해 번호를 붙였고, 아래 한 줄만 더했다
+-- 초기화 클라이언트가 파일을 latin1로 읽어 한글이 이중 인코딩되는 것을 막는다(서버 collation 설정 아님)
+SET NAMES utf8mb4;
+
 -- ID Generator
 INSERT INTO COMTECOPSEQ ( TABLE_NAME, NEXT_ID ) VALUES ('ADBKUSER_ID', 1);
 INSERT INTO COMTECOPSEQ ( TABLE_NAME, NEXT_ID ) VALUES ('ADBK_ID', 1);

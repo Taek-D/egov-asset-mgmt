@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="AssetInit">
+
+	<select id="selectSetupApplied" parameterType="string" resultType="int">
+		SELECT COUNT(*) FROM ASSET_SETUP WHERE SETUP_KEY = #{setupKey} FOR UPDATE
+	</select>
+
+	<insert id="insertSetup" parameterType="string">
+		INSERT INTO ASSET_SETUP (SETUP_KEY, APPLIED_PNTTM) VALUES (#{setupKey}, SYSDATE())
+	</insert>
+
+	<!-- 데모 암호 자리표시 값을 가진 시드 계정 -->
+	<select id="selectPendingDemoUserIds" resultType="string">
+		SELECT EMPLYR_ID FROM COMTNEMPLYRINFO WHERE PASSWORD = '!demo-pending' ORDER BY EMPLYR_ID
+	</select>
+
+	<update id="updateDemoPassword" parameterType="map">
+		UPDATE COMTNEMPLYRINFO
+		   SET PASSWORD = #{password}
+		     , CHG_PWD_LAST_PNTTM = SYSDATE()
+		 WHERE EMPLYR_ID = #{emplyrId}
+		   AND PASSWORD = '!demo-pending'
+	</update>
+
+</mapper>

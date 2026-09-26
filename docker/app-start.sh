@@ -6,5 +6,7 @@ rm -rf "$APP"
 mkdir -p "$APP"
 cd "$APP"
 jar xf /app/app.war
+# Crypto 키·짝 해시, DB 계정, 새 키로 암호화한 DB 암호를 WEB-INF/classes에 쓴다. 필수 값이 없으면 여기서 멈춘다
+java -cp "$APP/WEB-INF/classes:$APP/WEB-INF/lib/*" egovframework.asset.init.ConfigGenerator "$APP/WEB-INF/classes"
 cd /usr/local/tomcat
 exec catalina.sh run

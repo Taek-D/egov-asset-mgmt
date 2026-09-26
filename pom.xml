@@ -173,6 +173,8 @@
 		<dependency>
 			<groupId>jakarta.servlet</groupId>
 			<artifactId>jakarta.servlet-api</artifactId>
+			<!-- 실행 WAS(Tomcat 10.1)와 같은 Servlet 6.0. 업무 통합 테스트의 MockHttpServletRequest(Spring 6)가 6.0 API를 요구한다 -->
+			<version>6.0.0</version>
 			<scope>provided</scope>
 		</dependency>
 		<!-- 테스트 환경(test classpath)에서는 반드시 Jakarta Servlet 6.0 API를 사용 -->
@@ -500,6 +502,13 @@
 			<artifactId>spring-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- 업무 통합 테스트용 EL 구현(실행 시에는 Tomcat 10.1이 EL 5.0 구현을 제공한다) -->
+		<dependency>
+			<groupId>org.glassfish.expressly</groupId>
+			<artifactId>expressly</artifactId>
+			<version>5.0.0</version>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>jakarta.inject</groupId>
 			<artifactId>jakarta.inject-api</artifactId>
@@ -596,6 +605,11 @@
 					<artifactId>maven-compiler-plugin</artifactId>
 					<configuration>
 						<release>${java.version}</release>
+						<!-- 공통컴포넌트 자체 테스트는 검증 대상이 아니다. 컴파일하면 그 안의 @Configuration 테스트 설정
+						     (예: 기본 Crypto 키를 쓰는 EgovCryptoTestConfig)이 업무 테스트 컨텍스트에 섞인다 -->
+						<testExcludes>
+							<testExclude>egovframework/com/**</testExclude>
+						</testExcludes>
 						<annotationProcessorPaths>
 							<path>
 								<groupId>org.projectlombok</groupId>
