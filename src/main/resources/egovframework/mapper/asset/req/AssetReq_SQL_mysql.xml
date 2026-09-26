@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="AssetReq">
+
+	<!-- DeptHead.headStatus 안의 <include refid="loginable"/>은 포함하는 쪽(이 매퍼) 네임스페이스로 풀린다.
+	     정의를 복사하지 않고 DeptHead.loginable을 그대로 가리키게 한다 -->
+	<sql id="loginable"><include refid="DeptHead.loginable"/></sql>
+
+	<!-- 신청서 + 지금 부서장 경로 승인자(HEAD_APRV_ID: 유효한 부서장이 있고 신청자가 아니면 그 사람, 아니면 NULL = 관리자 경로) -->
+	<sql id="reqWithHead">
+		SELECT r.*
+		     , CASE WHEN (<include refid="DeptHead.headStatus"/>) = 'VALID' AND h.EMPLYR_ID &lt;&gt; r.APPLCNT_ID THEN h.EMPLYR_ID END AS HEAD_APRV_ID
+		  FROM ASSET_REQ r
+		  LEFT JOIN ASSET_DEPT_HEAD h ON h.ORGNZT_ID = r.ORGNZT_ID
+		  LEFT JOIN COMTNEMPLYRINFO e ON e.EMPLYR_ID = h.EMPLYR_ID
+	</sql>
+
+	<!-- 신청자가 아닌 로그인 가능한 관리자가 있는지(x = reqWithHead) -->
+	<sql id="otherAdminExists">
+		EXISTS (SELECT 1 FROM COMTNEMPLYRINFO e
+		          JOIN COMTNEMPLYRSCRTYESTBS ar ON ar.SCRTY_DTRMN_TRGET_ID = e.ESNTL_ID AND ar.AUTHOR_CODE = 'ROLE_ADMIN'
+		         WHERE <include refid="DeptHead.loginable"/>
+		           AND e.EMPLYR_ID &lt;&gt; x.APPLCNT_ID)
+	</sql>
+
+	<sql id="listFrom">
+		  FROM (<include refid="reqWithHead"/>) x
+		<where>
+			<if test="scopeApplcntId != null">AND x.APPLCNT_ID = #{scopeApplcntId}</if>
+			<if test="scopeOrgnztId != null">AND x.ORGNZT_ID = #{scopeOrgnztId}</if>
+			<if test="scopeInboxUserId != null">
+				AND x.STTUS = 'PENDING'
+				AND (x.HEAD_APRV_ID = #{scopeInboxUserId}
+				<if test="scopeInboxAdmin">
+				     OR (x.HEAD_APRV_ID IS NULL AND (x.APPLCNT_ID &lt;&gt; #{scopeInboxUserId} OR NOT <include refid="otherAdminExists"/>))
+				</if>
+				)
+			</if>
+			<if test="searchSttus != null and searchSttus != ''">AND x.STTUS = #{searchSttus}</if>
+			<if test="searchReqNo != null and searchReqNo != ''">AND x.REQ_NO LIKE CONCAT('%', #{searchReqNo}, '%')</if>
+		</where>
+	</sql>
+
+	<select id="selectReqList" parameterType="egovframework.asset.req.service.AssetReqVO" resultType="egovframework.asset.req.service.AssetReqVO">
+		SELECT x.REQ_NO, x.APPLCNT_ID, ap.USER_NM AS APPLCNT_NM, x.ORGNZT_ID, o.ORGNZT_NM, x.REQ_RESN, x.STTUS, x.REQ_PNTTM
+		     , x.APRV_ID, av.USER_NM AS APRV_NM, x.APRV_PNTTM, x.LAST_PROCESS_ID, x.LAST_PROCESS_PNTTM
+		     , (SELECT i.ITEM_NM FROM ASSET_REQ_LINE l JOIN ASSET_ITEM i ON i.ITEM_CODE = l.ITEM_CODE
+		         WHERE l.REQ_NO = x.REQ_NO ORDER BY l.ITEM_CODE LIMIT 1) AS FIRST_ITEM_NM
+		     , (SELECT COUNT(*) FROM ASSET_REQ_LINE l WHERE l.REQ_NO = x.REQ_NO) AS LINE_CNT
+		     , (x.STTUS = 'PENDING' AND x.HEAD_APRV_ID IS NULL AND NOT <include refid="otherAdminExists"/>) AS NO_APPROVER
+		  FROM (
+			SELECT x.* <include refid="listFrom"/>
+			 ORDER BY x.REQ_PNTTM DESC, x.REQ_NO DESC
+			 LIMIT #{recordCountPerPage} OFFSET #{firstIndex}
+		  ) x
+		  LEFT JOIN COMTNEMPLYRINFO ap ON ap.EMPLYR_ID = x.APPLCNT_ID
+		  LEFT JOIN COMTNEMPLYRINFO av ON av.EMPLYR_ID = x.APRV_ID
+		  LEFT JOIN COMTNORGNZTINFO o ON o.ORGNZT_ID = x.ORGNZT_ID
+		 ORDER BY x.REQ_PNTTM DESC, x.REQ_NO DESC
+	</select>
+
+	<select id="selectReqListTotCnt" parameterType="egovframework.asset.req.service.AssetReqVO" resultType="int">
+		SELECT COUNT(*) <include refid="listFrom"/>
+	</select>
+
+	<!-- 신청자: 업무사용자이고 부서가 실제로 있으면 ORGNZT_ID, 부서가 없으면 NULL. 업무사용자가 아니면 행 없음 -->
+	<select id="selectApplicant" parameterType="string" resultType="egovframework.asset.req.service.AssetReqVO">
+		SELECT e.EMPLYR_ID AS APPLCNT_ID, o.ORGNZT_ID
+		  FROM COMTNEMPLYRINFO e
+		  LEFT JOIN COMTNORGNZTINFO o ON o.ORGNZT_ID = e.ORGNZT_ID
+		 WHERE e.EMPLYR_ID = #{emplyrId}
+	</select>
+
+	<!-- 로그인 가능하고 해당 권한 행이 있는지 -->
+	<select id="selectAuthorCnt" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		  FROM COMTNEMPLYRINFO e
+		  JOIN COMTNEMPLYRSCRTYESTBS ar ON ar.SCRTY_DTRMN_TRGET_ID = e.ESNTL_ID AND ar.AUTHOR_CODE = #{authorCode}
+		 WHERE e.EMPLYR_ID = #{emplyrId}
+		   AND <include refid="DeptHead.loginable"/>
+	</select>
+
+	<insert id="insertReq" parameterType="egovframework.asset.req.service.AssetReqVO">
+		INSERT INTO ASSET_REQ (REQ_NO, APPLCNT_ID, ORGNZT_ID, REQ_RESN, STTUS, REQ_PNTTM, LAST_PROCESS_ID, LAST_PROCESS_PNTTM)
+		VALUES (#{reqNo}, #{applcntId}, #{orgnztId}, #{reqResn}, 'PENDING', SYSDATE(), #{applcntId}, SYSDATE())
+	</insert>
+
+	<insert id="insertLine" parameterType="egovframework.asset.req.service.AssetReqLineVO">
+		INSERT INTO ASSET_REQ_LINE (REQ_NO, ITEM_CODE, REQ_QTY, LINE_STTUS)
+		VALUES (#{reqNo}, #{itemCode}, #{reqQty}, 'PENDING')
+	</insert>
+
+	<insert id="insertHist" parameterType="egovframework.asset.req.service.AssetReqHistVO">
+		INSERT INTO ASSET_REQ_HIST (REQ_HIST_ID, REQ_NO, BEFORE_STTUS, AFTER_STTUS, RESN, PROCESS_ID, PROCESS_PNTTM)
+		VALUES (#{reqHistId}, #{reqNo}, #{beforeSttus}, #{afterSttus}, #{resn}, #{processId}, SYSDATE())
+	</insert>
+
+	<!-- 잠금 규약 ①: 신청서 행 -->
+	<select id="selectReqForUpdate" parameterType="string" resultType="egovframework.asset.req.service.AssetReqVO">
+		SELECT REQ_NO, APPLCNT_ID, ORGNZT_ID, STTUS FROM ASSET_REQ WHERE REQ_NO = #{reqNo} FOR UPDATE
+	</select>
+
+	<!-- 신청서 행을 잠근 뒤 그 품목 줄. 품목 행은 여기서 잠그지 않는다(OF l) — 품목 행은 lockItems가 코드 순으로 잠근다 -->
+	<select id="selectLinesForUpdate" parameterType="string" resultType="egovframework.asset.req.service.AssetReqLineVO">
+		SELECT l.REQ_NO, l.ITEM_CODE, i.ITEM_NM, i.ITEM_TY, l.REQ_QTY, l.APRV_QTY, l.LINE_STTUS, l.REJECT_RESN
+		  FROM ASSET_REQ_LINE l
+		  JOIN ASSET_ITEM i ON i.ITEM_CODE = l.ITEM_CODE
+		 WHERE l.REQ_NO = #{reqNo}
+		 ORDER BY l.ITEM_CODE
+		   FOR UPDATE OF l
+	</select>
+
+	<update id="updateLine" parameterType="egovframework.asset.req.service.AssetReqLineVO">
+		UPDATE ASSET_REQ_LINE
+		   SET LINE_STTUS = #{lineSttus}
+		     , APRV_QTY = #{aprvQty}
+		     , REJECT_RESN = #{rejectResn}
+		 WHERE REQ_NO = #{reqNo}
+		   AND ITEM_CODE = #{itemCode}
+	</update>
+
+	<update id="updateSttus" parameterType="map">
+		UPDATE ASSET_REQ
+		   SET STTUS = #{sttus}
+		<if test="approval">
+		     , APRV_ID = #{actorId}
+		     , APRV_PNTTM = SYSDATE()
+		</if>
+		     , LAST_PROCESS_ID = #{actorId}
+		     , LAST_PROCESS_PNTTM = SYSDATE()
+		 WHERE REQ_NO = #{reqNo}
+	</update>
+
+	<select id="selectReq" parameterType="string" resultType="egovframework.asset.req.service.AssetReqVO">
+		SELECT r.REQ_NO, r.APPLCNT_ID, ap.USER_NM AS APPLCNT_NM, r.ORGNZT_ID, o.ORGNZT_NM, r.REQ_RESN, r.STTUS, r.REQ_PNTTM
+		     , r.APRV_ID, av.USER_NM AS APRV_NM, r.APRV_PNTTM, r.LAST_PROCESS_ID, lp.USER_NM AS LAST_PROCESS_NM, r.LAST_PROCESS_PNTTM
+		  FROM ASSET_REQ r
+		  LEFT JOIN COMTNEMPLYRINFO ap ON ap.EMPLYR_ID = r.APPLCNT_ID
+		  LEFT JOIN COMTNEMPLYRINFO av ON av.EMPLYR_ID = r.APRV_ID
+		  LEFT JOIN COMTNEMPLYRINFO lp ON lp.EMPLYR_ID = r.LAST_PROCESS_ID
+		  LEFT JOIN COMTNORGNZTINFO o ON o.ORGNZT_ID = r.ORGNZT_ID
+		 WHERE r.REQ_NO = #{reqNo}
+	</select>
+
+	<select id="selectLines" parameterType="string" resultType="egovframework.asset.req.service.AssetReqLineVO">
+		SELECT l.REQ_NO, l.ITEM_CODE, i.ITEM_NM, i.ITEM_TY, i.USE_AT, l.REQ_QTY, l.APRV_QTY, l.LINE_STTUS, l.REJECT_RESN
+		  FROM ASSET_REQ_LINE l
+		  JOIN ASSET_ITEM i ON i.ITEM_CODE = l.ITEM_CODE
+		 WHERE l.REQ_NO = #{reqNo}
+		 ORDER BY l.ITEM_CODE
+	</select>
+
+	<select id="selectHistList" parameterType="string" resultType="egovframework.asset.req.service.AssetReqHistVO">
+		SELECT h.REQ_HIST_ID, h.REQ_NO, h.BEFORE_STTUS, h.AFTER_STTUS, h.RESN, h.PROCESS_ID, p.USER_NM AS PROCESS_NM, h.PROCESS_PNTTM
+		  FROM ASSET_REQ_HIST h
+		  LEFT JOIN COMTNEMPLYRINFO p ON p.EMPLYR_ID = h.PROCESS_ID
+		 WHERE h.REQ_NO = #{reqNo}
+		 ORDER BY h.REQ_HIST_ID
+	</select>
+
+	<!-- 신청 내역 보고: 신청일 범위(양끝 포함)의 품목 줄 -->
+	<select id="selectReqLineReport" parameterType="map" resultType="egovframework.asset.req.service.AssetReqLineVO">
+		SELECT r.REQ_NO, r.REQ_PNTTM, r.APPLCNT_ID, ap.USER_NM AS APPLCNT_NM, r.ORGNZT_ID, o.ORGNZT_NM
+		     , l.ITEM_CODE, i.ITEM_NM, i.ITEM_TY, i.USE_AT, l.REQ_QTY, l.APRV_QTY, l.LINE_STTUS, l.REJECT_RESN
+		     , r.STTUS AS REQ_STTUS, r.APRV_ID, av.USER_NM AS APRV_NM, r.LAST_PROCESS_PNTTM
+		  FROM ASSET_REQ r
+		  JOIN ASSET_REQ_LINE l ON l.REQ_NO = r.REQ_NO
+		  JOIN ASSET_ITEM i ON i.ITEM_CODE = l.ITEM_CODE
+		  LEFT JOIN COMTNEMPLYRINFO ap ON ap.EMPLYR_ID = r.APPLCNT_ID
+		  LEFT JOIN COMTNEMPLYRINFO av ON av.EMPLYR_ID = r.APRV_ID
+		  LEFT JOIN COMTNORGNZTINFO o ON o.ORGNZT_ID = r.ORGNZT_ID
+		 WHERE r.REQ_PNTTM &gt;= STR_TO_DATE(#{fromDe}, '%Y-%m-%d')
+		   AND r.REQ_PNTTM &lt; DATE_ADD(STR_TO_DATE(#{toDe}, '%Y-%m-%d'), INTERVAL 1 DAY)
+		 ORDER BY r.REQ_PNTTM, r.REQ_NO, l.ITEM_CODE
+	</select>
+
+</mapper>
