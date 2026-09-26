@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:task="http://www.springframework.org/schema/task"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd">
+
+	<!-- 야간 재고 부족 집계(명세 §10). 기본 매일 02:00 Asia/Seoul.
+	     시스템 속성·환경 변수(또는 globals.properties) asset.shortage.cron / asset.shortage.zone 으로 바꿀 수 있다. -->
+	<bean id="assetShortageJob" class="egovframework.asset.shortage.service.impl.AssetShortageJob">
+		<constructor-arg ref="assetShortageService"/>
+	</bean>
+
+	<bean id="assetShortageTrigger" class="org.springframework.scheduling.support.CronTrigger">
+		<constructor-arg type="java.lang.String" value="${asset.shortage.cron:0 0 2 * * *}"/>
+		<constructor-arg type="java.time.ZoneId" value="${asset.shortage.zone:Asia/Seoul}"/>
+	</bean>
+
+	<task:scheduler id="assetScheduler" pool-size="1"/>
+
+	<task:scheduled-tasks scheduler="assetScheduler">
+		<task:scheduled ref="assetShortageJob" method="execute" trigger="assetShortageTrigger"/>
+	</task:scheduled-tasks>
+</beans>

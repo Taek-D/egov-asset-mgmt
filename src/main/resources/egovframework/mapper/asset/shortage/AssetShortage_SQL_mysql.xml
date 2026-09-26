@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="AssetShortage">
+
+	<!-- 가용: 수량 비품 = STOCK_QTY, 개별 자산 = 보관(STORED) 자산 수 − RESERVED_QTY (AssetStock.selectAvailable과 같은 식).
+	     보고용이라 잠그지 않는다(INSERT ... SELECT는 원본 행에 공유 잠금을 걸어 재고 변경과 교착할 수 있다) -->
+	<select id="selectShortageTargets" resultType="egovframework.asset.shortage.service.AssetShortageVO">
+		SELECT A.ITEM_CODE, A.AVAIL_QTY, A.MIN_QTY, A.MIN_QTY - A.AVAIL_QTY AS SHORT_QTY
+		  FROM (SELECT I.ITEM_CODE
+		             , I.MIN_QTY
+		             , CASE WHEN I.ITEM_TY = 'QTY' THEN I.STOCK_QTY
+		                    ELSE (SELECT COUNT(*) FROM ASSET_UNIT U WHERE U.ITEM_CODE = I.ITEM_CODE AND U.STTUS = 'STORED') - I.RESERVED_QTY
+		               END AS AVAIL_QTY
+		          FROM ASSET_ITEM I
+		         WHERE I.USE_AT = 'Y') A
+		 WHERE A.AVAIL_QTY &lt; A.MIN_QTY
+		 ORDER BY A.ITEM_CODE
+	</select>
+
+	<insert id="insertRun" parameterType="egovframework.asset.shortage.service.AssetShortageRunVO">
+		INSERT INTO ASSET_SHORTAGE_RUN (RUN_ID, RUN_TY, RUN_PNTTM, ITEM_CNT, RUN_USER_ID)
+		VALUES (#{runId}, #{runTy}, SYSDATE(), #{itemCnt}, #{runUserId})
+	</insert>
+
+	<insert id="insertShortageList" parameterType="map">
+		INSERT INTO ASSET_SHORTAGE (RUN_ID, ITEM_CODE, AVAIL_QTY, MIN_QTY, SHORT_QTY) VALUES
+		<foreach collection="items" item="it" separator=",">
+			(#{runId}, #{it.itemCode}, #{it.availQty}, #{it.minQty}, #{it.shortQty})
+		</foreach>
+	</insert>
+
+	<select id="selectLatestRun" resultType="egovframework.asset.shortage.service.AssetShortageRunVO">
+		SELECT R.RUN_ID
+		     , R.RUN_TY
+		     , DATE_FORMAT(R.RUN_PNTTM, '%Y-%m-%d %H:%i:%s') AS RUN_PNTTM
+		     , R.ITEM_CNT
+		     , R.RUN_USER_ID
+		     , E.USER_NM AS RUN_USER_NM
+		  FROM ASSET_SHORTAGE_RUN R
+		  LEFT JOIN COMTNEMPLYRINFO E ON E.EMPLYR_ID = R.RUN_USER_ID
+		 ORDER BY R.RUN_PNTTM DESC, R.RUN_ID DESC
+		 LIMIT 1
+	</select>
+
+	<select id="selectShortageList" parameterType="egovframework.asset.shortage.service.AssetShortageVO" resultType="egovframework.asset.shortage.service.AssetShortageVO">
+		SELECT S.RUN_ID, S.ITEM_CODE, I.ITEM_NM, I.ITEM_TY, S.AVAIL_QTY, S.MIN_QTY, S.SHORT_QTY
+		  FROM ASSET_SHORTAGE S
+		  JOIN ASSET_ITEM I ON I.ITEM_CODE = S.ITEM_CODE
+		 WHERE S.RUN_ID = #{runId}
+		 ORDER BY S.SHORT_QTY DESC, S.ITEM_CODE
+		 LIMIT #{recordCountPerPage} OFFSET #{firstIndex}
+	</select>
+
+	<select id="selectShortageListTotCnt" parameterType="egovframework.asset.shortage.service.AssetShortageVO" resultType="int">
+		SELECT COUNT(*) FROM ASSET_SHORTAGE WHERE RUN_ID = #{runId}
+	</select>
+</mapper>
