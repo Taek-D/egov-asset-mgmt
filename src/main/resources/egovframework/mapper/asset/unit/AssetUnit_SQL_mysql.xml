@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="AssetUnit">
+
+	<sql id="unitSelect">
+		SELECT U.ASSET_NO, U.ITEM_CODE, I.ITEM_NM, I.USE_AT, U.STTUS, U.USER_ID, E.USER_NM, U.RM
+		     , U.FRST_REGISTER_ID, U.FRST_REGIST_PNTTM, U.LAST_UPDUSR_ID, U.LAST_UPDT_PNTTM
+		  FROM ASSET_UNIT U
+		  JOIN ASSET_ITEM I ON I.ITEM_CODE = U.ITEM_CODE
+		  LEFT JOIN COMTNEMPLYRINFO E ON E.EMPLYR_ID = U.USER_ID
+	</sql>
+
+	<sql id="listWhere">
+		<where>
+			<if test="searchItemCode != null and searchItemCode != ''">AND U.ITEM_CODE = #{searchItemCode}</if>
+			<if test="searchSttus != null and searchSttus != ''">AND U.STTUS = #{searchSttus}</if>
+			<if test="searchAssetNo != null and searchAssetNo != ''">AND U.ASSET_NO LIKE CONCAT('%', #{searchAssetNo}, '%')</if>
+		</where>
+	</sql>
+
+	<select id="selectUnitList" parameterType="egovframework.asset.unit.service.AssetUnitVO" resultType="egovframework.asset.unit.service.AssetUnitVO">
+		<include refid="unitSelect"/>
+		<include refid="listWhere"/>
+		 ORDER BY U.ASSET_NO
+		 LIMIT #{recordCountPerPage} OFFSET #{firstIndex}
+	</select>
+
+	<select id="selectUnitListTotCnt" parameterType="egovframework.asset.unit.service.AssetUnitVO" resultType="int">
+		SELECT COUNT(*) FROM ASSET_UNIT U
+		<include refid="listWhere"/>
+	</select>
+
+	<select id="selectUnit" parameterType="string" resultType="egovframework.asset.unit.service.AssetUnitVO">
+		<include refid="unitSelect"/>
+		 WHERE U.ASSET_NO = #{assetNo}
+	</select>
+
+	<!-- 잠금 규약: 품목 잠금 뒤 자산 행을 ASSET_NO 오름차순으로 잠근다 -->
+	<select id="selectUnitsForUpdate" parameterType="java.util.Collection" resultType="egovframework.asset.unit.service.AssetUnitVO">
+		SELECT ASSET_NO, ITEM_CODE, STTUS, USER_ID
+		  FROM ASSET_UNIT
+		 WHERE ASSET_NO IN <foreach collection="collection" item="no" open="(" separator="," close=")">#{no}</foreach>
+		 ORDER BY ASSET_NO
+		   FOR UPDATE
+	</select>
+
+	<!-- 폐기 자산 포함 전체에서 자산번호 중복 확인 -->
+	<select id="selectAssetNoCnt" parameterType="string" resultType="int">
+		SELECT COUNT(*) FROM ASSET_UNIT WHERE ASSET_NO = #{assetNo}
+	</select>
+
+	<select id="selectStoredUnits" parameterType="string" resultType="egovframework.asset.unit.service.AssetUnitVO">
+		<include refid="unitSelect"/>
+		 WHERE U.ITEM_CODE = #{itemCode}
+		   AND U.STTUS = 'STORED'
+		 ORDER BY U.ASSET_NO
+	</select>
+
+	<insert id="insertUnit" parameterType="map">
+		INSERT INTO ASSET_UNIT (ASSET_NO, ITEM_CODE, STTUS, USER_ID, RM, FRST_REGISTER_ID, FRST_REGIST_PNTTM)
+		VALUES (#{vo.assetNo}, #{vo.itemCode}, 'STORED', NULL, #{vo.rm}, #{actorId}, SYSDATE())
+	</insert>
+
+	<update id="updateSttus" parameterType="map">
+		UPDATE ASSET_UNIT
+		   SET STTUS = #{sttus}
+		     , USER_ID = #{userId}
+		     , LAST_UPDUSR_ID = #{actorId}
+		     , LAST_UPDT_PNTTM = SYSDATE()
+		 WHERE ASSET_NO = #{assetNo}
+	</update>
+
+	<insert id="insertHist" parameterType="egovframework.asset.unit.service.AssetUnitHistVO">
+		INSERT INTO ASSET_UNIT_HIST (UNIT_HIST_ID, ASSET_NO, BEFORE_STTUS, AFTER_STTUS, RESN, REQ_NO, PROCESS_ID, PROCESS_PNTTM)
+		VALUES (#{unitHistId}, #{assetNo}, #{beforeSttus}, #{afterSttus}, #{resn}, #{reqNo}, #{processId}, SYSDATE())
+	</insert>
+
+	<select id="selectHistList" parameterType="string" resultType="egovframework.asset.unit.service.AssetUnitHistVO">
+		SELECT H.UNIT_HIST_ID, H.ASSET_NO, H.BEFORE_STTUS, H.AFTER_STTUS, H.RESN, H.REQ_NO, H.PROCESS_ID, E.USER_NM AS PROCESS_NM, H.PROCESS_PNTTM
+		  FROM ASSET_UNIT_HIST H
+		  LEFT JOIN COMTNEMPLYRINFO E ON E.EMPLYR_ID = H.PROCESS_ID
+		 WHERE H.ASSET_NO = #{assetNo}
+		 ORDER BY H.UNIT_HIST_ID
+	</select>
+
+</mapper>
