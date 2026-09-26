@@ -59,14 +59,16 @@ public interface AssetStockService {
 
 	/**
 	 * 개별 자산 지급으로 확보 해제(DELIVER, UNIT 전용). 확보 −count, 이력 증감 0 / 변동 후 = 가용.
-	 * <b>호출 순서</b>: 같은 트랜잭션에서 지급할 자산 count대를 STORED→IN_USE로 먼저 바꾼 뒤 부른다(보관 −n과 확보 −n이 상쇄).
+	 * <b>호출 순서</b>(한 트랜잭션): ① 신청서 행 잠금 ② {@link #lockItems}(관련 품목 전체) ③ 지급할 자산 count대를
+	 * STORED→IN_USE로 변경 ④ deliverUnits. 변동 후 값은 ③ 이후의 보관 수로 계산된다(보관 −n과 확보 −n이 상쇄).
 	 * 확보 &lt; count이거나 결과 가용 &lt; 0이면 거부.
 	 */
 	void deliverUnits(String itemCode, int count, String reqNo, String actorId);
 
 	/**
 	 * 개별 자산 등록 입고(IN +1, UNIT 전용). 변동 후 = 가용. 사유에 자산번호를 남긴다.
-	 * <b>호출 순서</b>: 같은 트랜잭션에서 ASSET_UNIT 행(STORED)을 먼저 넣은 뒤 부른다.
+	 * <b>호출 순서</b>(한 트랜잭션): ① {@link #lockItems}([품목]) ② ASSET_UNIT 행(STORED) 삽입 ③ recordUnitIn.
+	 * 품목 잠금보다 자산 행 변경을 먼저 하면 동시 확보와 교착될 수 있다.
 	 */
 	void recordUnitIn(String itemCode, String assetNo, String actorId);
 
