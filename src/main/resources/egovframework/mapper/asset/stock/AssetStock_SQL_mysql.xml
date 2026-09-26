@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="AssetStock">
+
+	<!-- 잠금 규약: 품목 행을 ITEM_CODE 오름차순으로 잠근다 -->
+	<select id="selectItemsForUpdate" parameterType="java.util.Collection" resultType="egovframework.asset.item.service.AssetItemVO">
+		SELECT ITEM_CODE, ITEM_NM, ITEM_TY, USE_AT, MIN_QTY, STOCK_QTY, RESERVED_QTY
+		  FROM ASSET_ITEM
+		 WHERE ITEM_CODE IN <foreach collection="collection" item="code" open="(" separator="," close=")">#{code}</foreach>
+		 ORDER BY ITEM_CODE
+		   FOR UPDATE
+	</select>
+
+	<!-- 보관 자산 수. 잠금 읽기라 트랜잭션 스냅숏이 아닌 최신 커밋 값을 센다 -->
+	<select id="selectStoredCountsLocked" parameterType="java.util.Collection" resultType="egovframework.asset.item.service.AssetItemVO">
+		SELECT ITEM_CODE, COUNT(*) AS STORED_QTY
+		  FROM ASSET_UNIT
+		 WHERE ITEM_CODE IN <foreach collection="collection" item="code" open="(" separator="," close=")">#{code}</foreach>
+		   AND STTUS = 'STORED'
+		 GROUP BY ITEM_CODE
+		   FOR SHARE
+	</select>
+
+	<select id="selectAvailable" parameterType="java.util.Collection" resultType="egovframework.asset.item.service.AssetItemVO">
+		SELECT I.ITEM_CODE
+		     , CASE WHEN I.ITEM_TY = 'QTY' THEN I.STOCK_QTY
+		            ELSE (SELECT COUNT(*) FROM ASSET_UNIT U WHERE U.ITEM_CODE = I.ITEM_CODE AND U.STTUS = 'STORED') - I.RESERVED_QTY
+		       END AS AVAIL_QTY
+		  FROM ASSET_ITEM I
+		 WHERE I.ITEM_CODE IN <foreach collection="collection" item="code" open="(" separator="," close=")">#{code}</foreach>
+	</select>
+
+	<update id="updateQty" parameterType="map">
+		UPDATE ASSET_ITEM
+		   SET STOCK_QTY = #{stockQty}
+		     , RESERVED_QTY = #{reservedQty}
+		     , LAST_UPDUSR_ID = #{actorId}
+		     , LAST_UPDT_PNTTM = SYSDATE()
+		 WHERE ITEM_CODE = #{itemCode}
+	</update>
+
+	<insert id="insertHist" parameterType="egovframework.asset.stock.service.AssetStockHistVO">
+		INSERT INTO ASSET_STOCK_HIST (STOCK_HIST_ID, ITEM_CODE, HIST_TY, CHANGE_QTY, AFTER_QTY, RESN, REQ_NO, PROCESS_ID, PROCESS_PNTTM)
+		VALUES (#{stockHistId}, #{itemCode}, #{histTy}, #{changeQty}, #{afterQty}, #{resn}, #{reqNo}, #{processId}, SYSDATE())
+	</insert>
+
+	<sql id="histWhere">
+		<where>
+			<if test="itemCode != null and itemCode != ''">H.ITEM_CODE = #{itemCode}</if>
+		</where>
+	</sql>
+
+	<select id="selectHistList" parameterType="egovframework.asset.stock.service.AssetStockHistVO" resultType="egovframework.asset.stock.service.AssetStockHistVO">
+		SELECT H.STOCK_HIST_ID, H.ITEM_CODE, I.ITEM_NM, I.ITEM_TY, H.HIST_TY, H.CHANGE_QTY, H.AFTER_QTY, H.RESN, H.REQ_NO, H.PROCESS_ID, H.PROCESS_PNTTM
+		  FROM ASSET_STOCK_HIST H
+		  JOIN ASSET_ITEM I ON I.ITEM_CODE = H.ITEM_CODE
+		<include refid="histWhere"/>
+		 ORDER BY H.PROCESS_PNTTM DESC, H.STOCK_HIST_ID DESC
+		 LIMIT #{recordCountPerPage} OFFSET #{firstIndex}
+	</select>
+
+	<select id="selectHistListTotCnt" parameterType="egovframework.asset.stock.service.AssetStockHistVO" resultType="int">
+		SELECT COUNT(*) FROM ASSET_STOCK_HIST H
+		<include refid="histWhere"/>
+	</select>
+
+</mapper>
