@@ -1,0 +1,34 @@
+# 기관 비품·자산 관리 시스템: MySQL 8.0 + Tomcat 10.1(JDK 17)
+# 먼저 scripts/build.sh로 WAR를 만들고, .env를 채운 뒤 `docker compose up`
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: com
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    # collation 옵션을 주지 않는다. utf8mb4_unicode_ci를 서버 기본으로 두면 공통컴포넌트 로그인 SQL이 실패한다
+    command: --lower-case-table-names=1
+    ports: ["8080:8080"]  # app이 db 네트워크를 공유한다(globals.properties의 127.0.0.1:3306 그대로 사용)
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 3s
+      retries: 100
+  app:
+    image: tomcat:10.1-jdk17
+    depends_on: { db: { condition: service_healthy } }
+    network_mode: "service:db"
+    env_file: .env
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - ./target/egov-asset-mgmt-1.0.0.war:/app/app.war:ro
+      - ./docker/app-start.sh:/app/start.sh:ro
+    command: ["sh", "/app/start.sh"]
+
+volumes:
+  db-data:
