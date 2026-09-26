@@ -351,6 +351,20 @@ class DeptHeadTest extends AssetIntegrationSupport {
 				+ "(SELECT ESNTL_ID FROM COMTNEMPLYRINFO WHERE EMPLYR_ID = ?)", emplyrId);
 	}
 
+	@Test
+	void headWhoseAccountIsNotApprovedGoesToAdmins() throws Exception {
+		String d = dept();
+		String head = user(d, "ROLE_USER");
+		String applicant = user(d, "ROLE_USER");
+		head(d, head);
+		// 공통컴포넌트 로그인은 업무사용자 상태가 'P'(승인)일 때만 된다
+		jdbc.update("UPDATE COMTNEMPLYRINFO SET EMPLYR_STTUS_CODE = 'D' WHERE EMPLYR_ID = ?", head);
+
+		assertNull(deptHeadService.selectValidHeadId(d));
+		assertEquals(admins(), deptHeadService.selectApproverIds(d, applicant));
+		assertEquals(DeptHeadVO.STATUS_DISABLED, listed(d).getHeadStatus());
+	}
+
 	private String headRow(String orgnztId) {
 		List<String> r = jdbc.queryForList("SELECT EMPLYR_ID FROM ASSET_DEPT_HEAD WHERE ORGNZT_ID = ?", String.class, orgnztId);
 		return r.isEmpty() ? null : r.get(0);

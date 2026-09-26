@@ -2,9 +2,11 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="DeptHead">
 
-	<!-- 로그인 가능한 업무사용자(e = COMTNEMPLYRINFO): 잠금 표시 없음 + 권한 행 있음. 잠금 해제는 LOCK_AT을 NULL로 만든다 -->
+	<!-- 로그인 가능한 업무사용자(e = COMTNEMPLYRINFO): 승인 상태(공통컴포넌트 로그인 SQL 조건) + 잠금 표시 없음 + 권한 행 있음.
+	     잠금 해제는 LOCK_AT을 NULL로 만든다 -->
 	<sql id="loginable">
-		IFNULL(e.LOCK_AT, 'N') &lt;&gt; 'Y'
+		e.EMPLYR_STTUS_CODE = 'P'
+		AND IFNULL(e.LOCK_AT, 'N') &lt;&gt; 'Y'
 		AND EXISTS (SELECT 1 FROM COMTNEMPLYRSCRTYESTBS s WHERE s.SCRTY_DTRMN_TRGET_ID = e.ESNTL_ID)
 	</sql>
 
@@ -15,6 +17,7 @@
 		     WHEN e.EMPLYR_ID IS NULL THEN 'NO_ACCOUNT'
 		     WHEN NOT (e.ORGNZT_ID &lt;=&gt; h.ORGNZT_ID) THEN 'MOVED'
 		     WHEN <include refid="loginable"/> THEN 'VALID'
+		     WHEN IFNULL(e.EMPLYR_STTUS_CODE, '') &lt;&gt; 'P' THEN 'DISABLED'
 		     WHEN IFNULL(e.LOCK_AT, 'N') &lt;&gt; 'Y' THEN 'NO_ROLE'
 		     WHEN EXISTS (SELECT 1 FROM COMTNEMPLYRSCRTYESTBS s WHERE s.SCRTY_DTRMN_TRGET_ID = e.ESNTL_ID) THEN 'LOCKED'
 		     ELSE 'DISABLED' END
