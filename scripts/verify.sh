@@ -13,7 +13,7 @@ docker rm -f "$DB" >/dev/null 2>&1 || true
 trap 'docker rm -f "$DB" >/dev/null 2>&1 || true' EXIT
 
 # 서버 collation 옵션 없음(운영 구성과 동일)
-docker run -d --name "$DB" -e MYSQL_DATABASE=com -e MYSQL_USER -e MYSQL_PASSWORD -e MYSQL_ROOT_PASSWORD \
+docker run -d --name "$DB" -e TZ=Asia/Seoul -e MYSQL_DATABASE=com -e MYSQL_USER -e MYSQL_PASSWORD -e MYSQL_ROOT_PASSWORD \
   -v "$ROOT_HOST/db/init:/docker-entrypoint-initdb.d:ro" mysql:8.0 --lower-case-table-names=1 >/dev/null
 
 echo "MySQL 초기화 대기..."

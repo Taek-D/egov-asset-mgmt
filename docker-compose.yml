@@ -8,6 +8,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Seoul  # DB의 SYSDATE()와 앱 시각을 같은 시간대로
     # collation 옵션을 주지 않는다. utf8mb4_unicode_ci를 서버 기본으로 두면 공통컴포넌트 로그인 SQL이 실패한다
     command: --lower-case-table-names=1
     ports: ["8080:8080"]  # app이 db 네트워크를 공유한다(globals.properties의 127.0.0.1:3306 그대로 사용)
