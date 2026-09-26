@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="DeptHead">
+
+	<!-- 로그인 가능한 업무사용자(e = COMTNEMPLYRINFO): 잠금 표시 없음 + 권한 행 있음. 잠금 해제는 LOCK_AT을 NULL로 만든다 -->
+	<sql id="loginable">
+		IFNULL(e.LOCK_AT, 'N') &lt;&gt; 'Y'
+		AND EXISTS (SELECT 1 FROM COMTNEMPLYRSCRTYESTBS s WHERE s.SCRTY_DTRMN_TRGET_ID = e.ESNTL_ID)
+	</sql>
+
+	<!-- 부서장 지정 상태(h = ASSET_DEPT_HEAD, e = 지정된 사용자, 둘 다 LEFT JOIN). 지정 없으면 NULL.
+	     유효 조건(명세 §3)의 유일한 정의다. 목록 표시와 승인자 결정이 모두 이것을 쓴다 -->
+	<sql id="headStatus">
+		CASE WHEN h.EMPLYR_ID IS NULL THEN NULL
+		     WHEN e.EMPLYR_ID IS NULL THEN 'NO_ACCOUNT'
+		     WHEN NOT (e.ORGNZT_ID &lt;=&gt; h.ORGNZT_ID) THEN 'MOVED'
+		     WHEN <include refid="loginable"/> THEN 'VALID'
+		     WHEN IFNULL(e.LOCK_AT, 'N') &lt;&gt; 'Y' THEN 'NO_ROLE'
+		     WHEN EXISTS (SELECT 1 FROM COMTNEMPLYRSCRTYESTBS s WHERE s.SCRTY_DTRMN_TRGET_ID = e.ESNTL_ID) THEN 'LOCKED'
+		     ELSE 'DISABLED' END
+	</sql>
+
+	<sql id="headJoin">
+		  FROM ASSET_DEPT_HEAD h
+		  LEFT JOIN COMTNEMPLYRINFO e ON e.EMPLYR_ID = h.EMPLYR_ID
+	</sql>
+
+	<select id="selectDeptHeadList" parameterType="egovframework.com.cmm.ComDefaultVO" resultType="egovframework.asset.depthead.service.DeptHeadVO">
+		SELECT o.ORGNZT_ID
+		     , o.ORGNZT_NM
+		     , h.EMPLYR_ID
+		     , e.USER_NM
+		     , h.ASSIGN_ID
+		     , DATE_FORMAT(h.ASSIGN_PNTTM, '%Y-%m-%d %H:%i') ASSIGN_PNTTM
+		     , <include refid="headStatus"/> HEAD_STATUS
+		  FROM COMTNORGNZTINFO o
+		  LEFT JOIN ASSET_DEPT_HEAD h ON h.ORGNZT_ID = o.ORGNZT_ID
+		  LEFT JOIN COMTNEMPLYRINFO e ON e.EMPLYR_ID = h.EMPLYR_ID
+		 ORDER BY o.ORGNZT_ID
+		 LIMIT #{recordCountPerPage} OFFSET #{firstIndex}
+	</select>
+
+	<select id="selectDeptHeadListCnt" resultType="int">
+		SELECT COUNT(*) FROM COMTNORGNZTINFO
+	</select>
+
+	<select id="selectDeptCnt" parameterType="string" resultType="int">
+		SELECT COUNT(*) FROM COMTNORGNZTINFO WHERE ORGNZT_ID = #{orgnztId}
+	</select>
+
+	<select id="selectValidHeadId" parameterType="string" resultType="string">
+		SELECT h.EMPLYR_ID
+		<include refid="headJoin"/>
+		 WHERE h.ORGNZT_ID = #{orgnztId}
+		   AND <include refid="headStatus"/> = 'VALID'
+	</select>
+
+	<select id="selectValidHeadOrgnztIds" parameterType="string" resultType="string">
+		SELECT h.ORGNZT_ID
+		<include refid="headJoin"/>
+		 WHERE h.EMPLYR_ID = #{emplyrId}
+		   AND <include refid="headStatus"/> = 'VALID'
+	</select>
+
+	<!-- 로그인 가능한 관리자 -->
+	<select id="selectActiveAdminIds" resultType="string">
+		SELECT e.EMPLYR_ID
+		  FROM COMTNEMPLYRINFO e
+		  JOIN COMTNEMPLYRSCRTYESTBS r ON r.SCRTY_DTRMN_TRGET_ID = e.ESNTL_ID AND r.AUTHOR_CODE = 'ROLE_ADMIN'
+		 WHERE <include refid="loginable"/>
+		 ORDER BY e.EMPLYR_ID
+	</select>
+
+	<!-- 부서장 후보: 지금 그 부서 소속이고 로그인 가능. emplyrId를 주면 그 사람만 확인 -->
+	<select id="selectHeadCandidateList" parameterType="map" resultType="egovframework.asset.depthead.service.DeptHeadVO">
+		SELECT e.EMPLYR_ID
+		     , e.USER_NM
+		  FROM COMTNEMPLYRINFO e
+		 WHERE e.ORGNZT_ID = #{orgnztId}
+		   AND <include refid="loginable"/>
+		<if test="emplyrId != null">
+		   AND e.EMPLYR_ID = #{emplyrId}
+		</if>
+		 ORDER BY e.EMPLYR_ID
+	</select>
+
+	<!-- 부서가 기본키라 이미 있으면 바꾼다 -->
+	<insert id="mergeDeptHead" parameterType="map">
+		INSERT INTO ASSET_DEPT_HEAD (ORGNZT_ID, EMPLYR_ID, ASSIGN_ID, ASSIGN_PNTTM)
+		VALUES (#{orgnztId}, #{emplyrId}, #{assignId}, SYSDATE())
+		ON DUPLICATE KEY UPDATE EMPLYR_ID = VALUES(EMPLYR_ID), ASSIGN_ID = VALUES(ASSIGN_ID), ASSIGN_PNTTM = VALUES(ASSIGN_PNTTM)
+	</insert>
+
+	<delete id="deleteDeptHead" parameterType="string">
+		DELETE FROM ASSET_DEPT_HEAD WHERE ORGNZT_ID = #{orgnztId}
+	</delete>
+
+</mapper>
