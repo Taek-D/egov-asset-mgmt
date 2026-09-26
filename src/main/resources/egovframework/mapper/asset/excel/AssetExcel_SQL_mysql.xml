@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="AssetExcel">
+
+	<!-- 일괄등록 검사용 조회(잠그지 않는다: 저장 단계의 서비스가 잠금 아래에서 다시 확인한다) -->
+
+	<select id="selectActiveCodes" parameterType="string" resultType="string">
+		SELECT CODE FROM COMTCCMMNDETAILCODE WHERE CODE_ID = #{codeId} AND USE_AT = 'Y'
+	</select>
+
+	<select id="selectActiveItemNames" parameterType="java.util.Collection" resultType="string">
+		SELECT ACTIVE_ITEM_NM FROM ASSET_ITEM
+		 WHERE ACTIVE_ITEM_NM IN <foreach collection="collection" item="nm" open="(" separator="," close=")">#{nm}</foreach>
+	</select>
+
+	<!-- 폐기 자산 포함 -->
+	<select id="selectExistingAssetNos" parameterType="java.util.Collection" resultType="string">
+		SELECT ASSET_NO FROM ASSET_UNIT
+		 WHERE ASSET_NO IN <foreach collection="collection" item="no" open="(" separator="," close=")">#{no}</foreach>
+	</select>
+
+	<select id="selectItems" parameterType="java.util.Collection" resultType="egovframework.asset.item.service.AssetItemVO">
+		SELECT ITEM_CODE, ITEM_NM, ITEM_TY, USE_AT FROM ASSET_ITEM
+		 WHERE ITEM_CODE IN <foreach collection="collection" item="code" open="(" separator="," close=")">#{code}</foreach>
+	</select>
+
+</mapper>
