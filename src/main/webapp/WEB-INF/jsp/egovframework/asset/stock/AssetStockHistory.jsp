@@ -77,7 +77,7 @@ function fn_search() {
 			<c:when test="${row.histTy == 'IN'}">입고</c:when>
 			<c:when test="${row.histTy == 'ADJUST'}">조정</c:when>
 			<c:when test="${row.histTy == 'RESERVE'}">승인 확보</c:when>
-			<c:when test="${row.histTy == 'RELEASE'}">복구</c:when>
+			<c:when test="${row.histTy == 'RELEASE'}">지급 취소 복구</c:when>
 			<c:when test="${row.histTy == 'DELIVER'}">지급</c:when>
 			<c:otherwise><c:out value="${row.histTy}"/></c:otherwise>
 		</c:choose></td>
