@@ -25,7 +25,8 @@ URL 권한은 DB(`COMTNROLEINFO` 정규식 패턴 + `COMTNAUTHORROLERELATE`)에 
 | `/asset/approve/**` 승인 대기함·승인·부서 신청 | 허용(승인 여부는 서비스 판정) | 허용 | 허용 |
 | `/asset/(item|stock|unit|deliver|excel|shortage)/**` | 거부 | 허용 | **거부** |
 | `/asset/(depthead|admin)/**` | 거부 | **거부** | 허용 |
-| `/sym/bat/**` 배치 작업·결과 | 거부 | 허용 | 허용 |
+| `/sym/bat/` 작업 목록·상세(`getBatchOpertList`, `getBatchOpert`), 결과 목록·상세(`getBatchResultList`, `getBatchResult`) | 거부 | 허용 | 허용 |
+| `/sym/bat/` 그 밖 전부(작업·스케줄 등록·수정·삭제와 입력 화면, 결과 삭제, 스케줄 목록·상세, 작업 선택 팝업) | 거부 | **거부** | **거부** |
 | `/cop/bbs/` 게시글 쓰기·답글·수정·삭제, 첨부파일 삭제(`/cmm/fms/deleteFileInfs.do`) | 거부 | 허용 | 허용 |
 | `/cop/bbs/` 게시판 관리(`BBSMaster`) | 거부 | 거부 | 허용 |
 | 권한·그룹 관리, 메뉴 관리·메뉴 생성, 부서 관리, 회원·업무사용자 관리 | 거부 | 거부 | 허용 |
@@ -33,6 +34,8 @@ URL 권한은 DB(`COMTNROLEINFO` 정규식 패턴 + `COMTNAUTHORROLERELATE`)에 
 | 포털 메인 `/sym/mnu/mpm/EgovMainMenu*`, 게시글 읽기, 위에 없는 그 밖의 `.do` | 허용 | 허용 | 허용 |
 
 마지막 줄에는 이 시스템이 메뉴로 쓰지 않는 공통컴포넌트 전시용 기능(커뮤니티·동호회·설문·일정·지식관리·뉴스 등 `/cop/**`, `/dam/**`, `/uss/ion/**`의 나머지, `/uss/olh/**`, `/uss/olp/**`)이 포함되어 로그인 사용자 누구나 URL로 열 수 있다. 계정·권한·업무 데이터(품목·재고·자산·신청)에는 닿지 않는다.
+
+배치 편집 URL은 아무에게도 부여하지 않은 전용 권한 `ROLE_BATCH_EDIT_LOCKED`에만 연결되어 모든 역할에게 거부된다(`asset-000010`). 관리자가 권한 관리 화면에서 이 권한을 누군가에게 부여하면 다시 열린다. 의도한 한계다. 기반 배치 화면의 등록·수정·삭제 버튼은 그대로 보이며, 누르면 거부 화면이 나온다.
 
 서비스 계층에서 한 번 더 막는 것(URL만으로는 부족한 규칙):
 

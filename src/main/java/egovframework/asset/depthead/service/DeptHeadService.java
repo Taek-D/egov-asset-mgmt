@@ -5,7 +5,7 @@ import java.util.List;
 import egovframework.com.cmm.ComDefaultVO;
 
 /**
- * 부서장 지정과 승인자 결정(명세 §3, §7).
+ * 부서장 지정과 승인자 결정(docs/business-rules.md '부서장 유효 조건', '승인자 결정').
  *
  * <p>로그인 가능 = 업무사용자(COMTNEMPLYRINFO)이고 잠금 표시(LOCK_AT='Y')가 없고 권한 행(COMTNEMPLYRSCRTYESTBS)이 있다.
  * 유효한 부서장 = 부서에 지정된 사용자가 <b>지금도</b> 그 부서 소속이고 로그인 가능하다. 무효한 지정 기록은 자동으로 지우지 않는다.

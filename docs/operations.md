@@ -51,7 +51,8 @@ bash scripts/check-rules.sh            # 구조 규칙 1~3, 위반 0건이어야
 
 - 모두 지우고 처음 상태로: `docker compose down -v` 후 `docker compose up -d`. DB 볼륨이 새로 만들어지며 `db/init`을 다시 적재하고, 데모 암호도 다시 한 번 적용된다.
 - `db/init`의 SQL을 고치면 기존 볼륨에는 반영되지 않는다. 볼륨을 지우거나 같은 변경을 수동으로 실행한다.
-- 적재 순서: `10_com_ddl` → `20_com_dml` → `30_asset_ddl` → `40_asset_dml`(공통코드·권한·메뉴·공지 게시판·시드·기본 계정 비활성화) → `50_asset_batch`.
+- 적재 순서: `10_com_ddl` → `20_com_dml` → `30_asset_ddl` → `40_asset_dml`(공통코드·권한·메뉴·공지 게시판·시드·기본 계정 비활성화) → `50_asset_batch` → `60_asset_batch_lock`(배치 화면 보기 전용).
+- 이미 떠 있는 DB에 새 초기화 파일을 반영할 때(볼륨 유지): `docker exec egov-asset-db-1 sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" com < /docker-entrypoint-initdb.d/60_asset_batch_lock.sql'` 후 `docker compose -p egov-asset restart app`(URL 권한은 기동 때 읽는다). `60_` 파일은 여러 번 실행해도 된다.
 
 ## 야간 집계 시각
 
@@ -59,7 +60,8 @@ bash scripts/check-rules.sh            # 구조 규칙 1~3, 위반 0건이어야
 - 바꾸려면 Spring 플레이스홀더 `asset.shortage.cron`, `asset.shortage.zone`을 지정한다.
   - 방법 1: `globals.properties`에 키를 더한다.
   - 방법 2: `CATALINA_OPTS`에 `-Dasset.shortage.cron=...`를 준다.
-  - 기본값 외의 값은 아직 실제로 시험하지 않았다.
+  - 방법 2(시스템 속성)는 `AssetShortageScheduleOverrideTest`로 시험했다(`0 30 3 * * *`, `UTC` → 03:30 UTC).
+  - 두 방법을 함께 쓰면 `globals.properties`의 값이 이긴다(플레이스홀더 설정이 시스템 속성을 대체값으로만 본다).
 
 ## 비밀 값 교체
 

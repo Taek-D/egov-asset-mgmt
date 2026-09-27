@@ -42,7 +42,7 @@ import egovframework.asset.unit.service.AssetUnitService;
 import jakarta.annotation.Resource;
 
 /**
- * 신청·승인·지급·취소 흐름(명세 §3, §7, §8, §14 #1~#6, #8).
+ * 신청·승인·지급·취소 흐름(docs/business-rules.md '신청서', '동시 처리 결과').
  * 부서·사용자·부서장은 테스트마다 만들고 지운다. 자산담당자는 시드 keeper를 쓴다.
  */
 class AssetReqTest extends AssetIntegrationSupport {

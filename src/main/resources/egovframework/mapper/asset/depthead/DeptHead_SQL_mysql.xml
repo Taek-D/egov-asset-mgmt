@@ -11,7 +11,7 @@
 	</sql>
 
 	<!-- 부서장 지정 상태(h = ASSET_DEPT_HEAD, e = 지정된 사용자, 둘 다 LEFT JOIN). 지정 없으면 NULL.
-	     유효 조건(명세 §3)의 유일한 정의다. 목록 표시와 승인자 결정이 모두 이것을 쓴다 -->
+	     유효 조건(docs/business-rules.md '부서장 유효 조건')의 유일한 정의다. 목록 표시와 승인자 결정이 모두 이것을 쓴다 -->
 	<sql id="headStatus">
 		CASE WHEN h.EMPLYR_ID IS NULL THEN NULL
 		     WHEN e.EMPLYR_ID IS NULL THEN 'NO_ACCOUNT'

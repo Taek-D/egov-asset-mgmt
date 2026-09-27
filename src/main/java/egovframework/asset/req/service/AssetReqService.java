@@ -6,7 +6,7 @@ import java.util.Map;
 import egovframework.asset.item.service.AssetItemException;
 
 /**
- * 비품 신청·승인·지급·취소(명세 §3, §7, §8). 모든 메서드는 처리하는 사람의 EMPLYR_ID를 받고 보안 컨텍스트를 읽지 않는다.
+ * 비품 신청·승인·지급·취소(docs/business-rules.md '신청서', '동시 처리 결과'). 모든 메서드는 처리하는 사람의 EMPLYR_ID를 받고 보안 컨텍스트를 읽지 않는다.
  *
  * <p>상태: 대기(PENDING) → 승인(APPROVED) / 반려(REJECTED) / 신청취소(CANCELED), 승인 → 지급완료(DELIVERED) / 지급취소(DELIVERY_CANCELED).
  * 대기·승인만 다음 단계가 있고 나머지는 끝 상태다. 모든 상태 변경은 처리 이력(ASSET_REQ_HIST) 한 행을 남긴다(제출 행 포함).
