@@ -68,7 +68,7 @@
 ## 기반 소스 수정
 
 - 공통컴포넌트(`egovframework.com`, 기반 설정, pom)를 고칠 때는 최소한으로 하고, 커밋 메시지에 "기반 소스 수정 사유"를 적는다.
-- 현재까지의 수정: 매퍼 경로 추가, 공통컴포넌트 테스트 컴파일 제외, servlet-api 6.0.0, 테스트 전용 EL 구현, 초기화 SQL 사본의 `SET NAMES`, 기반 GitHub Actions 워크플로 삭제, 기반 `.github/`(이슈·PR 양식, 표준프레임워크 센터 보안 정책) 삭제, surefire `skipTests` 속성화, artifactId.
+- 현재까지의 수정: 매퍼 경로 추가, 공통컴포넌트 테스트 컴파일 제외, servlet-api 6.0.0, 테스트 전용 EL 구현, 초기화 SQL 사본의 `SET NAMES`, 기반 GitHub Actions 워크플로 삭제, 기반 `.github/`(이슈·PR 양식, 표준프레임워크 센터 보안 정책) 삭제, 세션 뮤텍스 리스너 등록(`EgovWebApplicationInitializer`), surefire `skipTests` 속성화, artifactId.
 
 ## 비밀 값과 커밋
 

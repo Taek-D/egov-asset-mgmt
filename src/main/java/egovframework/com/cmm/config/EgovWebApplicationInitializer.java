@@ -202,6 +202,8 @@ public class EgovWebApplicationInitializer implements WebApplicationInitializer 
 		// Spring RequestContextListener 설정
 		//-------------------------------------------------------------
 		servletContext.addListener(new org.springframework.web.context.request.RequestContextListener());
+		// 세션 뮤텍스(WebUtils.getSessionMutex)를 세션 객체가 아닌 전용 객체로 보장(신청서 제출 토큰 직렬화)
+		servletContext.addListener(new org.springframework.web.util.HttpSessionMutexListener());
 
 		LOGGER.debug("EgovWebApplicationInitializer END-============================================");
 

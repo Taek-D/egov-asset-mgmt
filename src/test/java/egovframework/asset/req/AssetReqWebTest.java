@@ -177,7 +177,7 @@ class AssetReqWebTest extends AssetIntegrationSupport {
 		assertEquals(t, token(badFormat));
 		// 규칙 위반(서비스 거부: 수량만 있고 품목 없음): 토큰 유지
 		MvcResult ruleFail = mvc.perform(submit(session, t, "", "1")).andExpect(status().isOk()).andReturn();
-		assertNotEquals(REJECT, ruleFail.getModelAndView().getModel().get("message"));
+		assertEquals("수량을 적은 줄의 품목을 선택하세요.", ruleFail.getModelAndView().getModel().get("message"));
 		assertEquals(t, token(ruleFail));
 		assertEquals(0, f.reqCnt(applicant));
 
