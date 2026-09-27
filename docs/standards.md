@@ -54,9 +54,9 @@
 ## DB 초기화 파일
 
 - `db/init`의 SQL은 파일 이름 순서로 한 번만 적재된다. 새 파일은 `50_` 뒤 번호로 추가하고, 이미 배포된 파일을 고쳐도 기존 DB 볼륨에는 반영되지 않는다.
-- 모든 초기화 SQL 파일의 첫 문장은 `SET NAMES utf8mb4;`다. 없으면 한글이 이중 인코딩되어 들어간다.
+- 모든 초기화 SQL 파일의 첫 문장은 `SET NAMES utf8mb4;`다. 없으면 한글이 이중 인코딩되어 들어가고, 공통컴포넌트 사용자 뷰가 latin1로 만들어져 서버 collation에 따라 로그인이 실패한다.
 - 공통컴포넌트 배치 스케줄 테이블(`COMTNBATCHSCHDUL`)에 행을 넣지 않는다. 기반 스케줄러가 모든 스케줄 행을 셸 명령으로 실행한다.
-- MySQL 서버에 collation·character-set 옵션을 주지 않는다(`utf8mb4_unicode_ci`를 서버 기본으로 두면 공통컴포넌트 로그인 SQL이 실패한다).
+- MySQL 서버 collation·character-set은 기본값(`utf8mb4` / `utf8mb4_0900_ai_ci`)을 검증 구성으로 둔다. `utf8mb4_unicode_ci`도 동작하는 것을 확인했지만(`SET NAMES` 덕분), 바꾸려면 그 설정으로 `verify.sh`를 먼저 통과시킨다.
 
 ## 테스트 작성
 

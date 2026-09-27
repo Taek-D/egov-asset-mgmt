@@ -20,7 +20,7 @@
 | 기반 | 전자정부 표준프레임워크 공통컴포넌트 v5.0.6 (parent `egovframe-web-config-parent`, Spring 6.2.x) |
 | 언어·빌드 | Java 17, Maven (Docker `maven:3.9-eclipse-temurin-17`) |
 | 화면 | JSP + JSTL + jQuery (공통컴포넌트 화면 틀과 스타일) |
-| 데이터 | MyBatis, MySQL 8.0 (서버 collation 옵션 없음) |
+| 데이터 | MyBatis, MySQL 8.0 (서버 기본 collation) |
 | WAS | Tomcat 10.1 (Jakarta) |
 | 실행 | Docker Compose (`mysql:8.0` + `tomcat:10.1-jdk17`) |
 
@@ -136,7 +136,11 @@ bash scripts/verify.sh
 ## 알려진 제약과 참고
 
 - **Spring 6.2.11 고정**: 실행환경 5.0.x parent BOM이 Spring 6.2.x에 묶여 있고, 이 버전대는 업스트림 OSS 지원이 끝났습니다. 표준 준수를 위해 직접 올리지 않았습니다.
-- **MySQL collation**: 서버 기본 collation을 `utf8mb4_unicode_ci`로 지정하면 공통컴포넌트 로그인 SQL이 "Illegal mix of collations"로 실패합니다. 그래서 서버 collation 옵션을 두지 않습니다.
+- **MySQL 초기화 문자셋**: MySQL 공식 Docker 이미지의 초기화 클라이언트는 latin1이라, 공통컴포넌트 초기화 SQL을 그대로 넣으면 문제가 두 가지 생깁니다.
+  - 한글이 이중 인코딩됩니다.
+  - 서버 collation이 `utf8mb4_unicode_ci` 등일 때 로그인 조회가 "Illegal mix of collations"로 실패합니다.
+  - 모든 초기화 SQL 첫 줄에 `SET NAMES utf8mb4;`를 넣어 둘 다 막았습니다. 서버 기본 collation과 `utf8mb4_unicode_ci` 모두에서 테스트 105건이 통과합니다.
+  - 원인과 수정은 공식 저장소에 보고했습니다: [이슈 #1386](https://github.com/eGovFramework/egovframe-common-components/issues/1386), [#1387](https://github.com/eGovFramework/egovframe-common-components/issues/1387), [PR #1388](https://github.com/eGovFramework/egovframe-common-components/pull/1388).
 - **초기화 SQL 한글**: MySQL 공식 이미지의 초기화 클라이언트가 SQL 파일을 latin1로 읽어 공통컴포넌트 DML의 한글까지 이중 인코딩됩니다. 적재용 사본(`db/init/10_`, `20_`) 맨 앞에 `SET NAMES utf8mb4;` 한 줄만 더했습니다.
 - **비밀번호 저장 방식**: 공통컴포넌트 방식(`EgovFileScrty.encryptPassword` = 아이디를 솔트로 쓴 SHA-256 1회)을 그대로 씁니다.
 - 기반 소스 수정 목록은 `git log`의 "기반 소스 수정 사유"에 있습니다(artifactId 변경, surefire `skipTests` 속성화, 기반 CI 워크플로 삭제, 매퍼 경로, 공통컴포넌트 테스트 컴파일 제외, servlet-api 6.0, 테스트 전용 EL 구현, 초기화 SQL 문자셋).

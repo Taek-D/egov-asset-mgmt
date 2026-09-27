@@ -38,8 +38,15 @@
 - 확인: `SELECT HEX(MENU_NM) FROM COMTNMENUINFO WHERE MENU_NO = 29100000`이 `EBB984...`로 시작해야 한다.
 
 **로그인 SQL "Illegal mix of collations"**
-- 원인: 서버 collation을 `utf8mb4_unicode_ci`로 지정하면 사용자 뷰 비교에서 collation이 섞인다.
-- 대응: 서버 옵션을 두지 않는다(MySQL 8 기본 `utf8mb4_0900_ai_ci`). 공식 저장소에는 아직 보고되지 않았다.
+- 증상: 로그인 조회(`egov-security-config.properties`의 `jdbcUsersByUsernameQuery`, `WHERE CONCAT(USER_SE, USER_ID) = ?`)가 `Illegal mix of collations (utf8mb4_bin,NONE) and (utf8mb4_0900_ai_ci,COERCIBLE)`로 실패해 로그인이 안 된다.
+- 원인: 서버 collation 하나만으로는 생기지 않는다. 세 조건이 겹칠 때 난다.
+  1. 공통컴포넌트 DDL을 utf8mb4가 아닌 클라이언트로 실행했다(공식 `mysql` 이미지의 초기화 클라이언트는 latin1이다). 사용자 뷰 `COMVNUSERMASTER`의 `USER_SE` 리터럴(`'USR'` 등)이 뷰를 만든 연결의 문자셋(latin1)을 따른다.
+  2. 테이블 collation이 `utf8mb4_0900_ai_ci`·`utf8mb4_bin`이 아니다(`utf8mb4_unicode_ci`, `utf8mb4_general_ci` 등).
+  3. MySQL 8.0.22 이상이다(조건을 뷰 안으로 밀어 넣는 최적화가 기본으로 켜짐).
+- 대응: 모든 초기화 SQL 첫 줄의 `SET NAMES utf8mb4;`(한글 이중 인코딩 대응과 같은 줄)가 뷰 리터럴을 utf8mb4로 만들어 이 문제도 막는다. 서버 collation을 `utf8mb4_unicode_ci`로 둔 MySQL 8.0에서 업무 테스트 105건과 로그인 조회가 모두 통과했다(2026-09-28).
+- 서버 collation은 검증 기준 구성인 MySQL 8 기본값(`utf8mb4_0900_ai_ci`)으로 둔다. 바꾸면 자산번호·품목명 중복 판정(대소문자·악센트 무시 규칙)이 새 collation의 규칙을 따르므로, 바꾼 뒤 `verify.sh`를 그 설정으로 한 번 돌려 확인한다.
+- 이미 latin1로 만들어진 뷰가 있는 DB는 `SET NAMES utf8mb4;` 뒤 `CREATE OR REPLACE VIEW COMVNUSERMASTER ...`(DDL의 정의 그대로)로 뷰만 다시 만든다.
+- 공식 저장소에 보고하고 수정을 제안했다: 이슈 #1386(한글 이중 인코딩), #1387(로그인 collation), PR #1388(MySQL 초기화 스크립트 3개에 `SET NAMES utf8mb4;`).
 
 **초기화 SQL 오류로 DB 컨테이너가 멈춤**
 - 초기화 SQL 하나가 실패하면 엔트리포인트가 종료하고, `mysqladmin ping`은 끝내 성공하지 않는다.

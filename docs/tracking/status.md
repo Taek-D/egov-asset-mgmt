@@ -25,7 +25,7 @@
 ## 남은 범위(우선순위 순)
 
 1. **HTTPS 데모 서버 배포**: 세션 쿠키가 Secure라 평문 HTTP 배포는 불가. HTTPS 종단 뒤에 배포하고 README에 주소를 둔다.
-2. **공식 저장소 기여**: 서버 collation을 `utf8mb4_unicode_ci`로 두면 공통컴포넌트 로그인 SQL이 "Illegal mix of collations"로 실패하는 문제를 재현 절차와 함께 이슈나 PR로 제출. 초기화 SQL 한글 이중 인코딩(`SET NAMES` 누락)도 같이 보고할 후보다.
+2. **공식 저장소 기여 리뷰 대응**: 초기화 SQL 한글 이중 인코딩(이슈 #1386)과 로그인 collation 충돌(이슈 #1387)을 보고하고, 둘을 함께 고치는 PR #1388을 제출했다(2026-09-27, 리뷰 대기). 받아들여지면 업무별 분할 초기화 스크립트(`src/script/dml/mysql`)에 같은 수정을 넣는 후속 PR을 검토한다.
 3. **REST API + React 화면 1개**: 업무 규칙이 서비스 계층에 있고 서비스가 처리자 아이디를 인자로 받으므로, 컨트롤러를 더해 노출한다.
 4. **Oracle 포팅**: 매퍼를 `*_oracle.xml`로 분리(`Globals.DbType`). 현재 SQL의 MySQL 전용 부분: `FOR SHARE`, `FOR UPDATE OF`, 생성 열, `ON DUPLICATE KEY UPDATE`, `LIMIT/OFFSET`, `SYSDATE()`.
 5. 메일 알림(승인 요청·결과), 신청 임시저장, 통계 화면, 사용자 직접 반납 신청, 부서별 재고.
