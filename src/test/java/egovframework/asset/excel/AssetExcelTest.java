@@ -13,6 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +37,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.RequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import egovframework.asset.AssetIntegrationSupport;
@@ -385,13 +389,52 @@ class AssetExcelTest extends AssetIntegrationSupport {
 					describe((AssetExcelResult) again.getModelAndView().getModel().get("result")));
 
 			mvc.perform(get("/asset/excel/stock.do")).andExpect(status().isOk())
-					.andExpect(header().string("Content-Disposition", "attachment; filename=\"stock_status.xlsx\""));
+					.andExpect(header().string("Content-Disposition", "attachment; filename=\"stock_status_" + seoulToday()
+							+ ".xlsx\"; filename*=UTF-8''%EC%9E%AC%EA%B3%A0%ED%98%84%ED%99%A9_" + seoulToday() + ".xlsx"));
 			mvc.perform(get("/asset/excel/requests.do").param("fromDe", "2026-02-01").param("toDe", "2026-01-01"))
 					.andExpect(status().isOk()).andExpect(view().name("egovframework/asset/excel/AssetExcelMain"))
 					.andExpect(model().attribute("message", "기간의 시작일이 종료일보다 늦습니다."));
 		} finally {
 			helper.setEgovUserDetailsService(original);
 		}
+	}
+
+	@Test
+	void downloadFileNamesAreKoreanWithAsciiFallback() throws Exception {
+		AssetExcelController controller = new AssetExcelController();
+		ReflectionTestUtils.setField(controller, "assetExcelService", excelService);
+		MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
+		String d = seoulToday();
+
+		assertDisposition(mvc, get("/asset/excel/stock.do"),
+				"attachment; filename=\"stock_status_" + d + ".xlsx\"; filename*=UTF-8''%EC%9E%AC%EA%B3%A0%ED%98%84%ED%99%A9_" + d + ".xlsx");
+		assertDisposition(mvc, get("/asset/excel/units.do"),
+				"attachment; filename=\"asset_ledger_" + d + ".xlsx\"; filename*=UTF-8''%EC%9E%90%EC%82%B0%EB%8C%80%EC%9E%A5_" + d + ".xlsx");
+		assertDisposition(mvc, get("/asset/excel/requests.do").param("fromDe", "2026-09-01").param("toDe", "2026-09-27"),
+				"attachment; filename=\"requests_20260901-20260927.xlsx\"; "
+						+ "filename*=UTF-8''%EC%8B%A0%EC%B2%AD%EB%82%B4%EC%97%AD_20260901-20260927.xlsx");
+		assertDisposition(mvc, get("/asset/excel/template.do").param("type", "item"),
+				"attachment; filename=\"item_upload_template.xlsx\"; "
+						+ "filename*=UTF-8''%ED%92%88%EB%AA%A9_%EC%9D%BC%EA%B4%84%EB%93%B1%EB%A1%9D_%EC%96%91%EC%8B%9D.xlsx");
+		assertDisposition(mvc, get("/asset/excel/template.do").param("type", "unit"),
+				"attachment; filename=\"asset_upload_template.xlsx\"; "
+						+ "filename*=UTF-8''%EC%9E%90%EC%82%B0_%EC%9D%BC%EA%B4%84%EB%93%B1%EB%A1%9D_%EC%96%91%EC%8B%9D.xlsx");
+	}
+
+	/** 헤더 값이 정확히 같고, 인코딩하지 않은 비ASCII 문자가 없으며, 본문은 여전히 .xlsx다. */
+	private static void assertDisposition(MockMvc mvc, RequestBuilder req, String expected)
+			throws Exception {
+		MockHttpServletResponse resp = mvc.perform(req).andExpect(status().isOk()).andReturn().getResponse();
+		List<String> values = resp.getHeaders("Content-Disposition");
+		assertEquals(List.of(expected), values);
+		assertTrue(values.get(0).chars().allMatch(c -> c < 0x80), values.get(0));
+		try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(resp.getContentAsByteArray()))) {
+			assertEquals("data", wb.getSheetAt(0).getSheetName());
+		}
+	}
+
+	private static String seoulToday() {
+		return LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.BASIC_ISO_DATE);
 	}
 
 	// ---------- 도우미 ----------

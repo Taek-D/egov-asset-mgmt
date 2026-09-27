@@ -3,7 +3,7 @@ package egovframework.asset.shortage.service;
 import java.util.List;
 
 /**
- * 재고 부족 집계(명세 §10): 사용 중이면서 가용 &lt; 최소 수량인 품목을 실행마다 기록한다.
+ * 재고 부족 집계(docs/business-rules.md '야간 재고 부족 집계'): 사용 중이면서 가용 &lt; 최소 수량인 품목을 실행마다 기록한다.
  */
 public interface AssetShortageService {
 

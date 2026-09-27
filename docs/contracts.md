@@ -14,7 +14,8 @@
   - 실패하면 저장은 0건이고 `행 번호(엑셀 실제 행) · 이유` 목록을 보여 준다.
   - 모든 행을 먼저 검사하므로 한 번에 모든 오류가 나온다.
   - 저장 중 경쟁 상황(다른 사람이 같은 이름을 먼저 저장 등)으로 실패하면 행 목록 대신 한 줄 메시지가 나오며 역시 0건 저장이다.
-- 내려받기: `.xlsx`, 1행 머리글(아래 열 이름 그대로), 파일 이름은 영문이다(`stock_status.xlsx`, `asset_ledger.xlsx`, `requests_<시작일>_<종료일>.xlsx`). 빈 업로드 양식도 내려받을 수 있다(`item_upload_template.xlsx`, `asset_upload_template.xlsx`).
+- 내려받기: `.xlsx`, 1행 머리글(아래 열 이름 그대로), 파일 이름은 한글이다: `재고현황_yyyyMMdd.xlsx`, `자산대장_yyyyMMdd.xlsx`(내려받는 날의 Asia/Seoul 날짜), `신청내역_<시작일>-<종료일>.xlsx`(yyyyMMdd). 빈 업로드 양식도 내려받을 수 있다(`품목_일괄등록_양식.xlsx`, `자산_일괄등록_양식.xlsx`).
+  - 헤더는 `Content-Disposition: attachment; filename="<영문 대체 이름>"; filename*=UTF-8''<한글 이름 퍼센트 인코딩>`이다. 영문 대체 이름은 `stock_status_yyyyMMdd.xlsx`, `asset_ledger_yyyyMMdd.xlsx`, `requests_<시작일>-<종료일>.xlsx`, `item_upload_template.xlsx`, `asset_upload_template.xlsx`.
 
 ## 품목 일괄등록(업로드)
 

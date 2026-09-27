@@ -1,10 +1,9 @@
 <%--
-  신청서 작성 (모든 사용자). 제출하면 바로 '대기'. 1회용 제출 토큰으로 중복 제출을 막는다.
+  신청서 작성 (모든 사용자). 제출하면 바로 '대기'. 화면마다 받는 1회용 제출 토큰(assetReqToken)으로 중복 제출을 막는다.
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
-<%@ taglib prefix="double-submit" uri="http://www.egovframe.go.kr/tags/double-submit/jsp" %>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -38,7 +37,7 @@ function fn_checkAvail(i) {
 
 	<form name="reqForm" action="<c:url value='/asset/req/submit.do'/>" method="post">
 	<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-	<double-submit:preventer tokenKey="assetReqForm"/>
+	<input type="hidden" name="assetReqToken" value="<c:out value='${assetReqToken}'/>"/>
 
 	<table class="wTable">
 	<caption>신청 사유</caption>

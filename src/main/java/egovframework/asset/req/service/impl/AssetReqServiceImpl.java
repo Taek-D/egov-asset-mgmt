@@ -30,6 +30,8 @@ public class AssetReqServiceImpl extends EgovAbstractServiceImpl implements Asse
 
 	private static final String ALREADY = "이미 처리된 신청입니다.";
 	private static final String ROLE_ASSET = "ROLE_ASSET";
+	/** ASSET_REQ_HIST.RESN 길이 */
+	private static final int HIST_RESN_MAX = 500;
 
 	@Resource(name = "assetReqDAO")
 	private AssetReqDAO assetReqDAO;
@@ -188,7 +190,37 @@ public class AssetReqServiceImpl extends EgovAbstractServiceImpl implements Asse
 		}
 		String after = approvedQty.isEmpty() ? AssetReqVO.REJECTED : AssetReqVO.APPROVED;
 		assetReqDAO.updateSttus(reqNo, after, approverId, true);
-		insertHist(reqNo, AssetReqVO.PENDING, after, null, approverId);
+		insertHist(reqNo, AssetReqVO.PENDING, after, rejectSummary(lines), approverId);
+	}
+
+	/**
+	 * 승인 처리 이력 사유: 반려 품목의 "품목명: 반려 사유"를 신청서 품목 순서대로 " / "로 잇는다(반려 없으면 null).
+	 * 500자를 넘으면 앞에서부터 통째로 들어가는 항목만 남기고 " … 외 n건", 첫 항목조차 넘치면 잘라서 "… 외 n건"(나머지 없으면 "…").
+	 */
+	private static String rejectSummary(List<AssetReqLineVO> lines) {
+		List<String> items = lines.stream().filter(l -> AssetReqLineVO.REJECTED.equals(l.getLineSttus()))
+				.map(l -> l.getItemNm() + ": " + l.getRejectResn()).toList();
+		if (items.isEmpty()) {
+			return null;
+		}
+		String all = String.join(" / ", items);
+		if (all.length() <= HIST_RESN_MAX) {
+			return all;
+		}
+		String fit = null;
+		for (int k = 1; k < items.size(); k++) {
+			String s = String.join(" / ", items.subList(0, k)) + " … 외 " + (items.size() - k) + "건";
+			if (s.length() > HIST_RESN_MAX) {
+				break;
+			}
+			fit = s;
+		}
+		if (fit != null) {
+			return fit;
+		}
+		int rest = items.size() - 1;
+		String suffix = rest > 0 ? "… 외 " + rest + "건" : "…";
+		return items.get(0).substring(0, HIST_RESN_MAX - suffix.length()) + suffix;
 	}
 
 	// ---------- 신청취소 ----------

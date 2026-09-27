@@ -42,7 +42,7 @@ import egovframework.asset.unit.service.AssetUnitService;
 import jakarta.annotation.Resource;
 
 /**
- * 신청·승인·지급·취소 흐름(명세 §3, §7, §8, §14 #1~#6, #8).
+ * 신청·승인·지급·취소 흐름(docs/business-rules.md '신청서', '동시 처리 결과').
  * 부서·사용자·부서장은 테스트마다 만들고 지운다. 자산담당자는 시드 keeper를 쓴다.
  */
 class AssetReqTest extends AssetIntegrationSupport {
@@ -138,8 +138,9 @@ class AssetReqTest extends AssetIntegrationSupport {
 		assertEquals(7, f.stock(q1));
 		assertEquals(5, f.stock(q3));
 		assertEquals(2, f.stockHist(reqNo).size());
-		assertEquals(List.of(Arrays.asList(null, "PENDING", applicant, null), Arrays.asList("PENDING", "APPROVED", head, null),
-				Arrays.asList("APPROVED", "DELIVERED", KEEPER, null)), f.hist(reqNo));
+		assertEquals(List.of(Arrays.asList(null, "PENDING", applicant, null),
+				Arrays.asList("PENDING", "APPROVED", head, nm(q2) + ": 이번 분기 배정 초과"), Arrays.asList("APPROVED", "DELIVERED", KEEPER, null)),
+				f.hist(reqNo));
 
 		// 두 번째 지급·승인·지급취소는 거부, 아무것도 바뀌지 않는다
 		assertRefused(ALREADY, () -> reqService.deliver(reqNo, Map.of(), KEEPER));
@@ -459,8 +460,137 @@ class AssetReqTest extends AssetIntegrationSupport {
 		assertEquals(List.of(row(q1, 3, null, "REJECTED", "예산 없음"), row(q2, 2, null, "REJECTED", "중복 신청")), f.lines(reqNo));
 		assertEquals(10, f.stock(q1));
 		assertEquals(0, f.stockHist(reqNo).size());
-		assertEquals(Arrays.asList("PENDING", "REJECTED", head, null), f.hist(reqNo).get(1));
+		assertEquals(Arrays.asList("PENDING", "REJECTED", head, nm(q1) + ": 예산 없음 / " + nm(q2) + ": 중복 신청"), f.hist(reqNo).get(1));
 		assertRefused(ALREADY, () -> reqService.cancel(reqNo, applicant));
+	}
+
+	// ---------- 반려 사유를 처리 이력에 모은다 ----------
+
+	@Test
+	void fullRejectionJoinsAllReasonsInHistory() throws Exception {
+		String d = f.dept();
+		String head = f.user(d, "ROLE_USER");
+		String applicant = f.user(d, "ROLE_USER");
+		f.head(d, head);
+		String q1 = f.qtyItem(10);
+		String q2 = f.qtyItem(10);
+		String reqNo = reqService.submit(req(null, line(q1, 1), line(q2, 1)), applicant);
+
+		reqService.approve(reqNo, List.of(no(q2, " 부서 비품 있음 "), no(q1, "재고 충분")), head);
+
+		assertEquals(Arrays.asList("PENDING", "REJECTED", head, nm(q1) + ": 재고 충분 / " + nm(q2) + ": 부서 비품 있음"), f.hist(reqNo).get(1));
+		// 품목 행의 반려 사유는 품목마다 그대로
+		assertEquals("재고 충분", f.lines(reqNo).get(0).get(4));
+		assertEquals("부서 비품 있음", f.lines(reqNo).get(1).get(4));
+	}
+
+	@Test
+	void partialRejectionHistoryHasOnlyRejectedItems() throws Exception {
+		String d = f.dept();
+		String head = f.user(d, "ROLE_USER");
+		String applicant = f.user(d, "ROLE_USER");
+		f.head(d, head);
+		String q1 = f.qtyItem(10);
+		String q2 = f.qtyItem(10);
+		String q3 = f.qtyItem(10);
+		String reqNo = reqService.submit(req(null, line(q1, 1), line(q2, 1), line(q3, 1)), applicant);
+
+		reqService.approve(reqNo, List.of(no(q1, "가"), ok(q2, 1), no(q3, "다")), head);
+
+		assertEquals(AssetReqVO.APPROVED, f.sttus(reqNo));
+		assertEquals(Arrays.asList("PENDING", "APPROVED", head, nm(q1) + ": 가 / " + nm(q3) + ": 다"), f.hist(reqNo).get(1));
+	}
+
+	@Test
+	void approvalWithoutRejectionLeavesHistoryReasonEmpty() throws Exception {
+		String d = f.dept();
+		String head = f.user(d, "ROLE_USER");
+		String applicant = f.user(d, "ROLE_USER");
+		f.head(d, head);
+		String q1 = f.qtyItem(10);
+		String q2 = f.qtyItem(10);
+		String reqNo = reqService.submit(req(null, line(q1, 1), line(q2, 1)), applicant);
+
+		reqService.approve(reqNo, List.of(ok(q1, 1), ok(q2, 1)), head);
+
+		assertEquals(Arrays.asList("PENDING", "APPROVED", head, null), f.hist(reqNo).get(1));
+	}
+
+	@Test
+	void longRejectReasonsKeepWholeLeadingItemsAndCountTheRest() throws Exception {
+		String d = f.dept();
+		String head = f.user(d, "ROLE_USER");
+		String applicant = f.user(d, "ROLE_USER");
+		f.head(d, head);
+		String q1 = f.qtyItem(10);
+		String q2 = f.qtyItem(10);
+		String q3 = f.qtyItem(10);
+
+		// 약 220자 항목 3개: 두 항목만 통째로 들어가고 한 건이 빠진다
+		String a = "가".repeat(200), b = "나".repeat(200), c = "다".repeat(200);
+		String r1 = reqService.submit(req(null, line(q1, 1), line(q2, 1), line(q3, 1)), applicant);
+		reqService.approve(r1, List.of(no(q1, a), no(q2, b), no(q3, c)), head);
+		String h1 = f.hist(r1).get(1).get(3);
+		assertEquals(nm(q1) + ": " + a + " / " + nm(q2) + ": " + b + " … 외 1건", h1);
+		assertTrue(h1.length() <= 500, String.valueOf(h1.length()));
+
+		// 약 250자 항목 3개: 첫 항목만 남고 두 건이 빠진다
+		String x = "라".repeat(240), y = "마".repeat(240), z = "바".repeat(240);
+		String r2 = reqService.submit(req(null, line(q1, 1), line(q2, 1), line(q3, 1)), applicant);
+		reqService.approve(r2, List.of(no(q1, x), ok(q2, 1), no(q3, y)), head);
+		String r3 = reqService.submit(req(null, line(q1, 1), line(q2, 1), line(q3, 1)), applicant);
+		reqService.approve(r3, List.of(no(q1, x), no(q2, y), no(q3, z)), head);
+		String h3 = f.hist(r3).get(1).get(3);
+		assertEquals(nm(q1) + ": " + x + " … 외 2건", h3);
+		assertTrue(h3.length() <= 500, String.valueOf(h3.length()));
+		// 일부 반려 두 항목(약 500자 초과)도 같은 규칙
+		assertEquals(nm(q1) + ": " + x + " … 외 1건", f.hist(r2).get(1).get(3));
+	}
+
+	@Test
+	void firstRejectItemTooLongIsCut() throws Exception {
+		String d = f.dept();
+		String head = f.user(d, "ROLE_USER");
+		String applicant = f.user(d, "ROLE_USER");
+		f.head(d, head);
+		String q1 = f.qtyItem(10);
+		String q2 = f.qtyItem(10);
+		String longResn = "사".repeat(500);
+
+		String r1 = reqService.submit(req(null, line(q1, 1)), applicant);
+		reqService.approve(r1, List.of(no(q1, longResn)), head);
+		String h1 = f.hist(r1).get(1).get(3);
+		assertEquals((nm(q1) + ": " + longResn).substring(0, 499) + "…", h1);
+		assertEquals(500, h1.length());
+
+		String r2 = reqService.submit(req(null, line(q1, 1), line(q2, 1)), applicant);
+		reqService.approve(r2, List.of(no(q1, longResn), no(q2, "짧음")), head);
+		String h2 = f.hist(r2).get(1).get(3);
+		assertEquals((nm(q1) + ": " + longResn).substring(0, 500 - "… 외 1건".length()) + "… 외 1건", h2);
+		assertEquals(500, h2.length());
+		assertEquals(longResn, f.lines(r2).get(0).get(4));
+	}
+
+	@Test
+	void shortageRefusalWithRejectedLineWritesNoHistory() throws Exception {
+		String d = f.dept();
+		String head = f.user(d, "ROLE_USER");
+		String applicant = f.user(d, "ROLE_USER");
+		f.head(d, head);
+		String q1 = f.qtyItem(1);
+		String q2 = f.qtyItem(10);
+		String reqNo = reqService.submit(req(null, line(q1, 3), line(q2, 1)), applicant);
+
+		assertRefused("가용", () -> reqService.approve(reqNo, List.of(ok(q1, 3), no(q2, "불필요")), head));
+
+		assertEquals(List.of(Arrays.asList(null, "PENDING", applicant, null)), f.hist(reqNo));
+		assertEquals(AssetReqVO.PENDING, f.sttus(reqNo));
+		for (List<Object> l : f.lines(reqNo)) {
+			assertEquals("PENDING", l.get(3));
+			assertNull(l.get(4));
+		}
+		assertEquals(1, f.stock(q1));
+		assertEquals(0, f.stockHist(reqNo).size());
 	}
 
 	// ---------- 제출 규칙 ----------
@@ -671,6 +801,10 @@ class AssetReqTest extends AssetIntegrationSupport {
 	}
 
 	// ---------- 도우미 ----------
+
+	private String nm(String itemCode) throws Exception {
+		return itemService.selectItem(itemCode).getItemNm();
+	}
 
 	private static AssetReqVO all() {
 		AssetReqVO vo = new AssetReqVO();

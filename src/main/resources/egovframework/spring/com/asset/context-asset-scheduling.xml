@@ -4,7 +4,7 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
 		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd">
 
-	<!-- 야간 재고 부족 집계(명세 §10). 기본 매일 02:00 Asia/Seoul.
+	<!-- 야간 재고 부족 집계(docs/business-rules.md '야간 재고 부족 집계'). 기본 매일 02:00 Asia/Seoul.
 	     시스템 속성·환경 변수(또는 globals.properties) asset.shortage.cron / asset.shortage.zone 으로 바꿀 수 있다. -->
 	<bean id="assetShortageJob" class="egovframework.asset.shortage.service.impl.AssetShortageJob">
 		<constructor-arg ref="assetShortageService"/>

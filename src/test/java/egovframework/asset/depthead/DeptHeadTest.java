@@ -27,7 +27,7 @@ import egovframework.com.cmm.ComDefaultVO;
 import jakarta.annotation.Resource;
 
 /**
- * 부서장 지정과 승인자 결정(명세 §3, §7).
+ * 부서장 지정과 승인자 결정(docs/business-rules.md '부서장 유효 조건', '승인자 결정').
  * 픽스처 부서·사용자·권한 행은 테스트마다 만들고 지운다. 시드 관리자(admin1, admin2)는 로그인 가능하다고 가정한다.
  */
 class DeptHeadTest extends AssetIntegrationSupport {
