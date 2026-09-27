@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -207,7 +209,8 @@ public class AssetExcelServiceImpl extends EgovAbstractServiceImpl implements As
 		AssetItemVO search = new AssetItemVO();
 		search.setFirstIndex(0);
 		search.setRecordCountPerPage(Integer.MAX_VALUE);
-		AssetExcelSheet sheet = new AssetExcelSheet("stock_status",
+		String today = today();
+		AssetExcelSheet sheet = new AssetExcelSheet("재고현황_" + today, "stock_status_" + today,
 				List.of("품목코드", "품목명", "유형", "분류", "단위", "재고 또는 보관 수", "확보 수량", "가용", "최소 수량", "사용 여부"));
 		for (AssetItemVO i : assetItemService.selectItemList(search)) {
 			sheet.addRow(i.getItemCode(), i.getItemNm(), ITEM_TY_NM.get(i.getItemTy()), i.getClCodeNm(), i.getUnitCodeNm(),
@@ -222,7 +225,8 @@ public class AssetExcelServiceImpl extends EgovAbstractServiceImpl implements As
 		AssetUnitVO search = new AssetUnitVO();
 		search.setFirstIndex(0);
 		search.setRecordCountPerPage(Integer.MAX_VALUE);
-		AssetExcelSheet sheet = new AssetExcelSheet("asset_ledger", List.of("자산번호", "품목", "상태", "현재 사용자", "비고"));
+		String today = today();
+		AssetExcelSheet sheet = new AssetExcelSheet("자산대장_" + today, "asset_ledger_" + today, List.of("자산번호", "품목", "상태", "현재 사용자", "비고"));
 		for (AssetUnitVO u : assetUnitService.selectUnitList(search)) {
 			sheet.addRow(u.getAssetNo(), u.getItemNm(), UNIT_STTUS_NM.get(u.getSttus()), u.getUserNm(), u.getRm());
 		}
@@ -236,7 +240,8 @@ public class AssetExcelServiceImpl extends EgovAbstractServiceImpl implements As
 		if (from.isAfter(to)) {
 			throw new AssetItemException("기간의 시작일이 종료일보다 늦습니다.");
 		}
-		AssetExcelSheet sheet = new AssetExcelSheet("requests_" + from + "_" + to,
+		String period = from.format(DateTimeFormatter.BASIC_ISO_DATE) + "-" + to.format(DateTimeFormatter.BASIC_ISO_DATE);
+		AssetExcelSheet sheet = new AssetExcelSheet("신청내역_" + period, "requests_" + period,
 				List.of("신청번호", "신청일", "신청자", "부서", "품목", "신청 수량", "승인 수량", "품목 결과", "헤더 상태", "승인자", "처리일"));
 		for (AssetReqLineVO l : assetReqService.selectReqLineReport(from.toString(), to.toString())) {
 			sheet.addRow(l.getReqNo(), dateTime(l.getReqPnttm()), l.getApplcntNm(), l.getOrgnztNm(), l.getItemNm(), l.getReqQty(),
@@ -248,12 +253,17 @@ public class AssetExcelServiceImpl extends EgovAbstractServiceImpl implements As
 
 	@Override
 	public AssetExcelSheet itemTemplate() {
-		return new AssetExcelSheet("item_upload_template", ITEM_HEADERS);
+		return new AssetExcelSheet("품목_일괄등록_양식", "item_upload_template", ITEM_HEADERS);
 	}
 
 	@Override
 	public AssetExcelSheet unitTemplate() {
-		return new AssetExcelSheet("asset_upload_template", UNIT_HEADERS);
+		return new AssetExcelSheet("자산_일괄등록_양식", "asset_upload_template", UNIT_HEADERS);
+	}
+
+	/** 파일 이름에 붙는 내려받는 순간의 서울 날짜(yyyyMMdd) */
+	private static String today() {
+		return LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.BASIC_ISO_DATE);
 	}
 
 	/** 첫 시트의 2행부터 읽는다(1행은 머리글). 모든 칸이 빈 줄은 건너뛴다. */
