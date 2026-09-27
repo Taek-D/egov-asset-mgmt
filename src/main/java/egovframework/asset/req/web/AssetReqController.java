@@ -1,9 +1,13 @@
 package egovframework.asset.req.web;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import org.egovframe.rte.fdl.property.EgovPropertyService;
 import org.egovframe.rte.ptl.mvc.tags.ui.pagination.PaginationInfo;
@@ -28,7 +32,6 @@ import egovframework.asset.req.service.AssetReqVO;
 import egovframework.asset.unit.service.AssetUnitService;
 import egovframework.asset.unit.service.AssetUnitVO;
 import egovframework.com.cmm.LoginVO;
-import egovframework.com.cmm.util.EgovDoubleSubmitHelper;
 import egovframework.com.cmm.util.EgovUserDetailsHelper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,8 +49,12 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class AssetReqController {
 
-	/** 작성 화면의 1회용 제출 토큰 키({@code <double-submit:preventer tokenKey="assetReqForm"/>}) */
-	public static final String TOKEN_KEY = "assetReqForm";
+	/** 작성 화면마다 발급하는 1회용 제출 토큰(폼 hidden 필드와 모델 속성 이름) */
+	public static final String TOKEN_PARAM = "assetReqToken";
+	/** 세션당 보관하는 미사용 토큰 수. 넘치면 가장 오래된 것부터 버린다 */
+	public static final int MAX_FORM_TOKENS = 20;
+	private static final String TOKEN_SESSION_KEY = AssetReqController.class.getName() + ".formTokens";
+	private static final String TOKEN_REJECT = "이미 제출했거나 만료된 화면입니다. 내 신청에서 제출 여부를 확인하세요.";
 
 	private static final String FORM_VIEW = "egovframework/asset/req/AssetReqForm";
 	private static final String LIST_VIEW = "egovframework/asset/req/AssetReqList";
@@ -70,51 +77,78 @@ public class AssetReqController {
 
 	// ---------- 신청서 작성 ----------
 
-	/** 메뉴 진입(GET·POST). addRows가 있으면 품목 줄을 더 늘린다(입력한 줄은 유지) */
+	/** 메뉴 진입(GET·POST). addRows가 있으면 품목 줄을 더 늘린다(입력한 줄·토큰은 유지) */
 	@RequestMapping("/asset/req/form.do")
 	public String form(@ModelAttribute("req") AssetReqVO req, @RequestParam(value = "addRows", required = false) String addRows,
-			ModelMap model) {
-		return formView(req, model, addRows != null);
-	}
-
-	@PostMapping("/asset/req/submit.do")
-	public String submit(@ModelAttribute("req") AssetReqVO req, BindingResult bindingResult, HttpServletRequest request, ModelMap model,
-			RedirectAttributes redirect) throws Exception {
-		if (bindingResult.hasErrors()) {
-			model.addAttribute("message", "신청 수량은 1 이상의 숫자로 입력하세요.");
-			return formView(req, model, false);
-		}
-		if (!consumeToken(request)) {
-			model.addAttribute("message", "이미 제출했거나 만료된 화면입니다. 내 신청에서 제출 여부를 확인하세요.");
-			return formView(req, model, false);
-		}
-		try {
-			String reqNo = assetReqService.submit(req, currentUserId());
-			redirect.addFlashAttribute("message", "신청서를 제출했습니다(대기). 대기 중에는 수정할 수 없으며, 바꾸려면 취소 후 다시 신청합니다.");
-			redirect.addAttribute("reqNo", reqNo);
-			return "redirect:/asset/req/detail.do";
-		} catch (AssetItemException e) {
-			model.addAttribute("message", e.getMessage());
-			return formView(req, model, false);
-		}
+			HttpServletRequest request, ModelMap model) {
+		return formView(req, model, addRows != null, request);
 	}
 
 	/**
-	 * 공통컴포넌트 이중 제출 방지 토큰을 확인하고 새 토큰으로 바꾼다. 원래 도우미는 확인과 교체가 원자적이지 않으므로
-	 * 세션 단위로 직렬화한다(더블클릭으로 동시에 들어온 두 요청 중 하나만 통과). 토큰 맵·파라미터가 없으면 거부.
+	 * 토큰 확인부터 신청서 생성까지 세션 단위로 직렬화한다(더블클릭으로 같은 토큰이 동시에 오면 차례로 처리).
+	 * 토큰은 신청서가 실제로 만들어졌을 때만 소모한다. 입력 형식 오류·규칙 위반이면 같은 토큰으로 화면을 다시 그린다.
 	 */
-	private static boolean consumeToken(HttpServletRequest request) {
+	@PostMapping("/asset/req/submit.do")
+	public String submit(@ModelAttribute("req") AssetReqVO req, BindingResult bindingResult, HttpServletRequest request, ModelMap model,
+			RedirectAttributes redirect) throws Exception {
 		HttpSession session = request.getSession();
 		synchronized (WebUtils.getSessionMutex(session)) {
-			if (session.getAttribute(EgovDoubleSubmitHelper.SESSION_TOKEN_KEY) == null
-					|| request.getParameter(EgovDoubleSubmitHelper.PARAMETER_NAME) == null) {
-				return false;
+			if (bindingResult.hasErrors()) {
+				model.addAttribute("message", "신청 수량은 1 이상의 숫자로 입력하세요.");
+				return formView(req, model, false, request);
 			}
-			return EgovDoubleSubmitHelper.checkAndSaveToken(TOKEN_KEY);
+			String token = request.getParameter(TOKEN_PARAM);
+			Set<String> tokens = formTokens(session);
+			if (token == null || !tokens.contains(token)) {
+				model.addAttribute("message", TOKEN_REJECT);
+				return formView(req, model, false, request);
+			}
+			try {
+				String reqNo = assetReqService.submit(req, currentUserId());
+				tokens.remove(token);
+				redirect.addFlashAttribute("message", "신청서를 제출했습니다(대기). 대기 중에는 수정할 수 없으며, 바꾸려면 취소 후 다시 신청합니다.");
+				redirect.addAttribute("reqNo", reqNo);
+				return "redirect:/asset/req/detail.do";
+			} catch (AssetItemException e) {
+				model.addAttribute("message", e.getMessage());
+				return formView(req, model, false, request);
+			}
 		}
 	}
 
-	private String formView(AssetReqVO req, ModelMap model, boolean addRows) {
+	/** 세션의 미사용 토큰(발급 순서). 세션 뮤텍스 안에서만 부른다 */
+	@SuppressWarnings("unchecked")
+	private static Set<String> formTokens(HttpSession session) {
+		Set<String> tokens = (Set<String>) session.getAttribute(TOKEN_SESSION_KEY);
+		if (tokens == null) {
+			tokens = new LinkedHashSet<>();
+			session.setAttribute(TOKEN_SESSION_KEY, tokens);
+		}
+		return tokens;
+	}
+
+	/** 요청의 토큰이 아직 쓰지 않은 유효 토큰이면 그대로, 아니면 새로 발급한다 */
+	private static String formToken(HttpServletRequest request) {
+		HttpSession session = request.getSession();
+		synchronized (WebUtils.getSessionMutex(session)) {
+			Set<String> tokens = formTokens(session);
+			String token = request.getParameter(TOKEN_PARAM);
+			if (token != null && tokens.contains(token)) {
+				return token;
+			}
+			token = UUID.randomUUID().toString();
+			tokens.add(token);
+			Iterator<String> oldest = tokens.iterator();
+			while (tokens.size() > MAX_FORM_TOKENS) {
+				oldest.next();
+				oldest.remove();
+			}
+			return token;
+		}
+	}
+
+	private String formView(AssetReqVO req, ModelMap model, boolean addRows, HttpServletRequest request) {
+		model.addAttribute(TOKEN_PARAM, formToken(request));
 		List<AssetReqLineVO> lines = new ArrayList<>(req.getLines());
 		int rows = Math.max(FORM_ROWS, lines.size()) + (addRows ? FORM_ROWS : 0);
 		while (lines.size() < rows) {
