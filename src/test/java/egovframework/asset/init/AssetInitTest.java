@@ -5,8 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
@@ -166,6 +169,85 @@ class AssetInitTest extends AssetIntegrationSupport {
 		// 배치 화면 허용 패턴('0')이 관리 영역 차단 패턴('05')보다 먼저 평가된다
 		assertTrue(sortOf("asset-000005").compareTo(sortOf("asset-000009")) < 0);
 		assertTrue(sortOf("asset-000009").compareTo(sortOf("web-000003")) < 0);
+	}
+
+	private static final String BATCH_LOCK = "ROLE_BATCH_EDIT_LOCKED";
+
+	/** 배치 작업·결과의 목록·상세(자산담당자·관리자 보기 허용) */
+	private static final List<String> BATCH_VIEW_URLS = List.of("/sym/bat/getBatchOpertList.do", "/sym/bat/getBatchOpert.do",
+			"/sym/bat/getBatchResultList.do", "/sym/bat/getBatchResult.do");
+
+	/** 기반 배치 컨트롤러(EgovBatchOpert/Result/SchdulController)의 나머지 URL 전부(모든 역할 거부) */
+	private static final List<String> BATCH_BLOCKED_URLS = List.of("/sym/bat/deleteBatchOpert.do", "/sym/bat/addBatchOpert.do",
+			"/sym/bat/getBatchOpertForRegist.do", "/sym/bat/getBatchOpertForUpdate.do", "/sym/bat/updateBatchOpert.do",
+			"/sym/bat/getBatchOpertListPopup.do", "/sym/bat/deleteBatchResult.do", "/sym/bat/deleteBatchSchdul.do",
+			"/sym/bat/addBatchSchdul.do", "/sym/bat/getBatchSchdul.do", "/sym/bat/getBatchSchdulForRegist.do",
+			"/sym/bat/getBatchSchdulForUpdate.do", "/sym/bat/getBatchSchdulList.do", "/sym/bat/updateBatchSchdul.do");
+
+	@Test
+	void batchScreensAreViewOnly() {
+		Map<String, Set<String>> inherited = new LinkedHashMap<>();
+		for (String role : List.of("ROLE_USER", "ROLE_ASSET", "ROLE_ADMIN")) {
+			inherited.put(role, inheritedRoles(role));
+		}
+		for (String url : BATCH_VIEW_URLS) {
+			for (String q : List.of("", "?pageIndex=2")) {
+				Set<String> required = firstMatch(url + q).getValue();
+				assertFalse(allowed(required, inherited.get("ROLE_USER")), url + q + " / ROLE_USER");
+				assertTrue(allowed(required, inherited.get("ROLE_ASSET")), url + q + " / ROLE_ASSET");
+				assertTrue(allowed(required, inherited.get("ROLE_ADMIN")), url + q + " / ROLE_ADMIN");
+			}
+		}
+		for (String url : BATCH_BLOCKED_URLS) {
+			Map.Entry<String, Set<String>> first = firstMatch(url);
+			// 모든 로그인 사용자 허용 포괄 패턴으로 새지 않는다
+			assertFalse("web-000003".equals(first.getKey()), url + " → " + first.getKey());
+			for (Map.Entry<String, Set<String>> role : inherited.entrySet()) {
+				assertFalse(allowed(first.getValue(), role.getValue()), url + " / " + role.getKey());
+			}
+		}
+		// 잠금 권한은 아무도 갖지 않는다(역할 계층·사용자·부서 권한 어디에도 없다)
+		assertEquals(List.of(BATCH_LOCK), authorities("asset-000010"));
+		assertEquals(0, jdbc().queryForObject(
+				"SELECT COUNT(*) FROM COMTNROLES_HIERARCHY WHERE PARNTS_ROLE = ? OR CHLDRN_ROLE = ?", Integer.class, BATCH_LOCK, BATCH_LOCK));
+		assertEquals(0, jdbc().queryForObject(
+				"SELECT COUNT(*) FROM COMTNEMPLYRSCRTYESTBS WHERE AUTHOR_CODE = ?", Integer.class, BATCH_LOCK));
+		// 잠금 패턴은 관리 영역 차단('05')·포괄 패턴('3')보다 먼저 평가된다
+		assertTrue(sortOf("asset-000010").compareTo(sortOf("asset-000009")) < 0);
+	}
+
+	/** 기반 sqlRolesAndUrl과 같은 순서로 평가해 처음 일치한 패턴의 (역할 코드, 권한 집합)을 돌려준다 */
+	private Map.Entry<String, Set<String>> firstMatch(String url) {
+		Map<String, String> codeOf = new LinkedHashMap<>();
+		Map<String, Set<String>> authoritiesOf = new LinkedHashMap<>();
+		for (Map<String, Object> row : jdbc().queryForList("SELECT a.ROLE_CODE, a.ROLE_PTTRN url, b.AUTHOR_CODE authority "
+				+ "FROM COMTNROLEINFO a, COMTNAUTHORROLERELATE b WHERE a.ROLE_CODE = b.ROLE_CODE AND a.ROLE_TY = 'url' ORDER BY a.ROLE_SORT")) {
+			String pattern = (String) row.get("url");
+			codeOf.putIfAbsent(pattern, (String) row.get("ROLE_CODE"));
+			authoritiesOf.computeIfAbsent(pattern, k -> new HashSet<>()).add((String) row.get("authority"));
+		}
+		for (Map.Entry<String, Set<String>> e : authoritiesOf.entrySet()) {
+			if (Pattern.compile(e.getKey()).matcher(url).matches()) {
+				return Map.entry(codeOf.get(e.getKey()), e.getValue());
+			}
+		}
+		throw new AssertionError("일치하는 패턴 없음: " + url);
+	}
+
+	/** 역할과 역할 계층으로 물려받는 상위 역할(CHLDRN_ROLE이 PARNTS_ROLE의 권한을 물려받는다) */
+	private Set<String> inheritedRoles(String role) {
+		Set<String> roles = new HashSet<>(Set.of(role));
+		for (int size = 0; size != roles.size();) {
+			size = roles.size();
+			for (String r : List.copyOf(roles)) {
+				roles.addAll(jdbc().queryForList("SELECT PARNTS_ROLE FROM COMTNROLES_HIERARCHY WHERE CHLDRN_ROLE = ?", String.class, r));
+			}
+		}
+		return roles;
+	}
+
+	private static boolean allowed(Set<String> required, Set<String> held) {
+		return required.stream().anyMatch(held::contains);
 	}
 
 	private List<String> authorities(String roleCode) {
